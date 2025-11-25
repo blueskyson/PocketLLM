@@ -1,6 +1,6 @@
-package com.pocketllm.model.req;
+package com.pocketllm.model.request;
 
-public class LoginReq {
+public class SignupRequest {
     private String email;
     private String password;
 

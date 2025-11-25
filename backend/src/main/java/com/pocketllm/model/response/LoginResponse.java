@@ -1,10 +1,10 @@
-package com.pocketllm.model.resp;
+package com.pocketllm.model.response;
 
-public class LoginResp {
+public class LoginResponse {
     private String userUuid;
     private String email;
 
-    public LoginResp(String uuid, String email) {
+    public LoginResponse(String uuid, String email) {
         this.userUuid = uuid;
         this.email = email;
     }

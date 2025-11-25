@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BACKEND_ENDPOINT } from "@/app/config";
 
 function MainComponent() {
   const [error, setError] = useState(null);
@@ -18,7 +19,7 @@ function MainComponent() {
     }
   
     try {
-      const res = await fetch("http://localhost:8080/api/auth/login", {
+      const res = await fetch(`${BACKEND_ENDPOINT}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
