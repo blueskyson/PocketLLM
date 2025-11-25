@@ -1,0 +1,79 @@
+
+{
+  "info": {
+    "name": "Pocket LLM API Tests",
+    "_postman_id": "pocket-llm-tests",
+    "description": "Collection for testing Pocket LLM ChatController endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Chat",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": 101,\n  \"title\": \"My First Chat\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/chat/create",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "chat", "create"]
+        }
+      }
+    },
+    {
+      "name": "Save Message",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"chatId\": \"abc123\",\n  \"content\": \"Hello, Pocket LLM!\",\n  \"fromUser\": true\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/chat/message",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "chat", "message"]
+        }
+      }
+    },
+    {
+      "name": "Get Chats for User",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/chat/list/101",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "chat", "list", "101"]
+        }
+      }
+    },
+    {
+      "name": "Get Chat History",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/chat/history/abc123",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "chat", "history", "abc123"]
+        }
+      }
+    }
+  ]
+}
