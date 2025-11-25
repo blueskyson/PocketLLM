@@ -1,10 +1,9 @@
 package com.pocketllm.controller;
 
-import com.pocketllm.model.entity.User;
-import com.pocketllm.model.req.LoginReq;
-import com.pocketllm.model.resp.LoginResp;
+import com.pocketllm.model.request.LoginRequest;
+import com.pocketllm.model.request.SignupRequest;
+import com.pocketllm.model.response.AuthResponse;
 import com.pocketllm.service.AuthService;
-import jakarta.servlet.http.HttpSession;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,29 +23,23 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<?> signUp(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> signUp(@RequestBody SignupRequest request) {
         try {
-            String email = body.get("email");
-            String password = body.get("password");
-            String sessionId = authService.signUp(email, password);
-
-            return ResponseEntity.ok(Map.of("sessionId", sessionId));
+            String sessionId = authService.signUp(request.getEmail(), request.getPassword());
+            return ResponseEntity.ok(new AuthResponse(sessionId));
         } catch (RuntimeException e) {
-            return ResponseEntity.status(400).body(Map.of("message", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String,String> body) {
-        String email = body.get("email");
-        String password = body.get("password");
-
-        String sessionId = authService.login(email, password);
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        String sessionId = authService.login(request.getEmail(), request.getPassword());
 
         if (sessionId == null) {
             return ResponseEntity.status(401).body(Map.of("message", "Invalid email or password"));
         }
 
-        return ResponseEntity.ok(Map.of("sessionId", sessionId));
+        return ResponseEntity.ok(new AuthResponse(sessionId));
     }
 }
