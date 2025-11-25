@@ -4,7 +4,13 @@ USC CSCI 578 Final Project
 
 # Environment Setup
 
-## Backend
+## Create Anything
+
+1. Install node v22.20.0.
+2. Go to `./create-anything/apps/web` and run `npm install --legacy-peer-deps` to install dependencies.
+3. run `npm run dev` to start the development server.
+
+## Java
 
 1. Download Intellij Community Edition from [here](https://www.jetbrains.com/idea/download/other.html) and install it.
 2. Install Java JDK 17 and set `CLASSPATH`.
