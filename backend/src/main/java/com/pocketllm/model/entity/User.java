@@ -14,8 +14,11 @@ public class User {
     @Column(nullable = false, unique = true)
     private String uuid; // Public ID
 
+    @Column(nullable = false, unique = true)
+    private String email;
+
     @Column(nullable = false)
-    private String name;
+    private String password;
 
     public User() {
         this.uuid = UUID.randomUUID().toString();
@@ -31,12 +34,20 @@ public class User {
         return uuid;
     }
 
-    public String getName() {
-        return name;
+    public String getEmail() {
+        return email;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 }
 
