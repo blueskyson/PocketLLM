@@ -8,11 +8,19 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
+
 public interface ChatRepository extends JpaRepository<Chat, Long> {
     // Retrieve all chats for a user, sorted by creation date (latest first)
-    List<Chat> findByUserIdOrderByCreatedAtDesc(Integer userId);
+    List<Chat> findByUserIdOrderByCreatedAtDesc(String userId);
 
-    // Optional: Find a chat by its unique chatId
+    // Find a chat by its unique chatId
     Optional<Chat> findByChatId(String chatId);
+
+    // Verify ownership for deletion/authorization
+    boolean existsByChatIdAndUserId(String chatId, String userId);
+
+    // Hard delete by chatId
+    void deleteByChatId(String chatId);
 }
+
 

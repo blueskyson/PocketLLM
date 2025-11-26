@@ -6,6 +6,7 @@ import com.pocketllm.model.entity.ChatHistory;
 import com.pocketllm.repository.ChatRepository;
 import com.pocketllm.repository.ChatHistoryRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,7 +26,7 @@ public class ChatService {
     /**
      * Create a new chat for a user
      */
-    public Chat createChat(Integer userId, String title) {
+    public Chat createChat(String userId, String title) {
         Chat chat = Chat.builder()
                 .userId(userId)
                 .title(title)
@@ -36,9 +37,29 @@ public class ChatService {
     }
 
     /**
-     * Save a message in chat history
+     * Get all chats for a user
      */
-    public ChatHistory saveMessage(String chatId, String content, boolean fromUser) {
+    public List<Chat> getChatsForUser(String userId) {
+        return chatRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    /**
+     * Get chat history by chatId for a specific user (ownership check)
+     */
+    public List<ChatHistory> getChatHistoryForUser(String userId, String chatId) {
+        if (!chatRepository.existsByChatIdAndUserId(chatId, userId)) {
+            throw new IllegalArgumentException("Chat not found or access denied");
+        }
+        return chatHistoryRepository.findByChatIdOrderByTimestampAsc(chatId);
+    }
+
+    /**
+     * Save a message in chat history for a chat owned by the user (ownership check)
+     */
+    public ChatHistory saveMessageForUser(String userId, String chatId, String content, boolean fromUser) {
+        if (!chatRepository.existsByChatIdAndUserId(chatId, userId)) {
+            throw new IllegalArgumentException("Chat not found or access denied");
+        }
         ChatHistory message = ChatHistory.builder()
                 .chatId(chatId)
                 .content(content)
@@ -49,16 +70,14 @@ public class ChatService {
     }
 
     /**
-     * Get all chats for a user
+     * Delete a chat and its history for a user (ownership check)
      */
-    public List<Chat> getChatsForUser(Integer userId) {
-        return chatRepository.findByUserIdOrderByCreatedAtDesc(userId);
-    }
-
-    /**
-     * Get chat history sorted by timestamp
-     */
-    public List<ChatHistory> getChatHistory(String chatId) {
-        return chatHistoryRepository.findByChatIdOrderByTimestampAsc(chatId);
+    @Transactional
+    public void deleteChat(String userId, String chatId) {
+        if (!chatRepository.existsByChatIdAndUserId(chatId, userId)) {
+            throw new IllegalArgumentException("Chat not found or access denied");
+        }
+        chatHistoryRepository.deleteByChatId(chatId);
+        chatRepository.deleteByChatId(chatId);
     }
 }
