@@ -5,22 +5,26 @@ import com.pocketllm.model.entity.Chat;
 import com.pocketllm.model.entity.ChatHistory;
 import com.pocketllm.repository.ChatRepository;
 import com.pocketllm.repository.ChatHistoryRepository;
+import com.pocketllm.llm.LlmClient; // Import the LLM client
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class ChatService {
 
     private final ChatRepository chatRepository;
     private final ChatHistoryRepository chatHistoryRepository;
+    private final LlmClient llmClient; // Inject LLMClient
 
-    public ChatService(ChatRepository chatRepository, ChatHistoryRepository chatHistoryRepository) {
+    public ChatService(ChatRepository chatRepository,
+                       ChatHistoryRepository chatHistoryRepository,
+                       LlmClient llmClient) {
         this.chatRepository = chatRepository;
         this.chatHistoryRepository = chatHistoryRepository;
+        this.llmClient = llmClient;
     }
 
     /**
@@ -67,6 +71,31 @@ public class ChatService {
                 .timestamp(LocalDateTime.now())
                 .build();
         return chatHistoryRepository.save(message);
+    }
+
+    /**
+     * Process user message: save user message, call LLM, save LLM response
+     */
+    public String processUserMessage(String userId, String chatId, String userMessage) {
+        // Validate chat ownership
+        if (!chatRepository.existsByChatIdAndUserId(chatId, userId)) {
+            throw new IllegalArgumentException("Chat not found or access denied");
+        }
+
+        // Save user message
+        saveMessageForUser(userId, chatId, userMessage, true);
+
+        // Prepare messages for LLM
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(Map.of("role", "user", "content", userMessage));
+
+        // Call LLM
+        String llmResponse = llmClient.sendMessage(messages);
+
+        // Save LLM response
+        saveMessageForUser(userId, chatId, llmResponse, false);
+
+        return llmResponse;
     }
 
     /**

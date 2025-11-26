@@ -8,10 +8,9 @@ import java.time.LocalDateTime;
 
 @Data
 @Accessors(chain = true)
-public class SaveMessageResponse {
-    private Long id;
+public class SendMessageResponse {
     private String chatId;
-    private String content;
-    private boolean fromUser;
+    private String userMessage;
+    private String llmResponse;
     private LocalDateTime timestamp;
 }
