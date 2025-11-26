@@ -3,12 +3,17 @@
   "info": {
     "name": "Pocket LLM API Tests",
     "_postman_id": "pocket-llm-tests",
-    "description": "Collection for testing Pocket LLM ChatController endpoints",
+    "description": "Collection for testing Pocket LLM Auth and Chat endpoints with session-based authentication and ownership checks",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "sessionId", "value": "" },
+    { "key": "chatId", "value": "" }
+  ],
   "item": [
     {
-      "name": "Create Chat",
+      "name": "Sign Up",
       "request": {
         "method": "POST",
         "header": [
@@ -16,48 +21,136 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"userId\": 101,\n  \"title\": \"My First Chat\"\n}"
+          "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"mypassword\"\n}"
         },
         "url": {
-          "raw": "http://localhost:8080/api/chat/create",
+          "raw": "{{baseUrl}}/api/auth/signup",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "signup"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Sign Up returns sessionId', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json).to.have.property('sessionId');",
+              "  pm.environment.set('sessionId', json.sessionId);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"mypassword\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/auth/login",
           "protocol": "http",
           "host": ["localhost"],
           "port": "8080",
+          "path": ["api", "auth", "login"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Login returns sessionId', function () {",
+              "  const status = pm.response.code;",
+              "  if (status === 200) {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json).to.have.property('sessionId');",
+              "    pm.environment.set('sessionId', json.sessionId);",
+              "  } else {",
+              "    console.warn('Login failed: ', pm.response.text());",
+              "  }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create Chat",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Session-Id", "value": "{{sessionId}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"My First Chat\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat/create",
+          "host": ["{{baseUrl}}"],
           "path": ["api", "chat", "create"]
         }
-      }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Create Chat returns chatId', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json).to.have.property('chatId');",
+              "  pm.environment.set('chatId', json.chatId);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
     },
     {
       "name": "Save Message",
       "request": {
         "method": "POST",
         "header": [
-          { "key": "Content-Type", "value": "application/json" }
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Session-Id", "value": "{{sessionId}}" }
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"chatId\": \"abc123\",\n  \"content\": \"Hello, Pocket LLM!\",\n  \"fromUser\": true\n}"
+          "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"content\": \"Hello, Pocket LLM!\",\n  \"fromUser\": true\n}"
         },
         "url": {
-          "raw": "http://localhost:8080/api/chat/message",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "8080",
+          "raw": "{{baseUrl}}/api/chat/message",
+          "host": ["{{baseUrl}}"],
           "path": ["api", "chat", "message"]
         }
       }
     },
     {
-      "name": "Get Chats for User",
+      "name": "Get Chats (current user via session)",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          { "key": "X-Session-Id", "value": "{{sessionId}}" }
+        ],
         "url": {
-          "raw": "http://localhost:8080/api/chat/list/101",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "8080",
-          "path": ["api", "chat", "list", "101"]
+          "raw": "{{baseUrl}}/api/chat/list",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "chat", "list"]
         }
       }
     },
@@ -65,15 +158,44 @@
       "name": "Get Chat History",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          { "key": "X-Session-Id", "value": "{{sessionId}}" }
+        ],
         "url": {
-          "raw": "http://localhost:8080/api/chat/history/abc123",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "8080",
-          "path": ["api", "chat", "history", "abc123"]
+          "raw": "{{baseUrl}}/api/chat/history/{{chatId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "chat", "history", "{{chatId}}"]
         }
       }
+    },
+    {
+      "name": "Delete Chat",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "X-Session-Id", "value": "{{sessionId}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/chat/{{chatId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "chat", "{{chatId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Delete Chat returns 204 No Content', function () {",
+              "  pm.response.to.have.status(204);",
+              "});",
+              "// Optionally clear chatId after deletion",
+              "pm.environment.unset('chatId');"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
     }
   ]
 }

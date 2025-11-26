@@ -10,6 +10,10 @@ import java.util.List;
 public interface ChatHistoryRepository extends JpaRepository<ChatHistory, Long> {
     // Retrieve all messages for a chat, sorted by timestamp (oldest first)
     List<ChatHistory> findByChatIdOrderByTimestampAsc(String chatId);
+
+    // Hard delete all history for a chat
+    void deleteByChatId(String chatId);
 }
+
 
 
