@@ -55,8 +55,8 @@ export default function ChatInterface() {
           ? data
           : [];
 
-        // Sort by updated_at
-        conversations.sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0));
+        // Sort by createdAt
+        conversations.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 
         setConversationsData(conversations);
 
@@ -67,7 +67,7 @@ export default function ChatInterface() {
           chatId: null,
           title: "New Conversation",
           messages: [],
-          updated_at: Date.now(),
+          createdAt: Date.now(),
           __draft: true,
         });
         
@@ -95,7 +95,7 @@ export default function ChatInterface() {
       chatId: null,
       title: "New Conversation",
       messages: [],
-      updated_at: Date.now(),
+      createdAt: Date.now(),
       __draft: true,
     });
     setMessage("");
@@ -257,7 +257,6 @@ export default function ChatInterface() {
             chatId: chatId,
             title: finalTitle,
             messages: [userMsg],
-            updated_at: Date.now(),
             createdAt: Date.now(),
           };
 
@@ -275,7 +274,7 @@ export default function ChatInterface() {
               ? {
                   ...conv,
                   messages: [...(conv.messages || []), userMsg],
-                  updated_at: Date.now(),
+                  createdAt: Date.now(),
                 }
               : conv;
 
@@ -317,7 +316,7 @@ export default function ChatInterface() {
               ? {
                   ...conv,
                   messages: [...(conv.messages || []), newMessage],
-                  updated_at: Date.now(),
+                  createdAt: Date.now(),
                 }
               : conv;
 
@@ -409,7 +408,7 @@ export default function ChatInterface() {
                       {conversation.title || "New Conversation"}
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {conversation.updated_at ? new Date(conversation.updated_at).toLocaleDateString() : 'Just now'}
+                      {conversation.createdAt ? new Date(conversation.createdAt).toLocaleDateString() : 'Just now'}
                     </p>
                   </div>
                   <button
