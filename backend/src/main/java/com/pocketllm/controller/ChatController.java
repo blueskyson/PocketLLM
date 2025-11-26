@@ -5,17 +5,17 @@ import com.pocketllm.SessionStore;
 import com.pocketllm.model.request.CreateChatRequest;
 import com.pocketllm.model.request.SaveMessageRequest;
 import com.pocketllm.model.response.CreateChatResponse;
-import com.pocketllm.model.response.SaveMessageResponse;
+import com.pocketllm.model.response.SendMessageResponse;
 import com.pocketllm.model.response.ChatSummaryResponse;
 import com.pocketllm.model.response.ChatMessageResponse;
 import com.pocketllm.model.entity.Chat;
-import com.pocketllm.model.entity.ChatHistory;
 import com.pocketllm.service.ChatService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.stream.Collectors;
+
 
 @RestController
 @RequestMapping("/api/chat")
@@ -50,10 +50,10 @@ public class ChatController {
     }
 
     /**
-     * Save a message in chat history (ownership checked)
+     * Send a message and get LLM response (always triggers LLM)
      */
     @PostMapping("/message")
-    public ResponseEntity<SaveMessageResponse> saveMessage(
+    public ResponseEntity<SendMessageResponse> sendMessage(
             @RequestHeader("X-Session-Id") String sessionId,
             @RequestBody SaveMessageRequest request) {
 
@@ -63,13 +63,14 @@ public class ChatController {
         }
 
         try {
-            ChatHistory message = chatService.saveMessageForUser(userId, request.getChatId(), request.getContent(), request.isFromUser());
-            SaveMessageResponse response = new SaveMessageResponse()
-                    .setId(message.getId())
-                    .setChatId(message.getChatId())
-                    .setContent(message.getContent())
-                    .setFromUser(message.isFromUser())
-                    .setTimestamp(message.getTimestamp());
+            String llmResponse = chatService.processUserMessage(userId, request.getChatId(), request.getContent());
+
+            SendMessageResponse response = new SendMessageResponse()
+                    .setChatId(request.getChatId())
+                    .setUserMessage(request.getContent())
+                    .setLlmResponse(llmResponse)
+                    .setTimestamp(java.time.LocalDateTime.now());
+
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(404).build();
