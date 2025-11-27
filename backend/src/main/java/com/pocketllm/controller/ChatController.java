@@ -144,4 +144,20 @@ public class ChatController {
             return ResponseEntity.notFound().build(); // 404
         }
     }
+
+
+    /**
+     * Clear all query cache (admin endpoint)
+     */
+    @DeleteMapping("/cache/clear")
+    public ResponseEntity<Void> clearCache(@RequestHeader("X-Session-Id") String sessionId) {
+        String userId = sessionStore.getUserId(sessionId);
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        chatService.clearQueryCache();
+    return ResponseEntity.ok().build();
+}
+
 }
