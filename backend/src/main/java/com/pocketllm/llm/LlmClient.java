@@ -20,7 +20,7 @@ public class LlmClient {
     @Value("${llm.client.url:http://localhost:8081/v1/chat/completions}")
     private String llmUrl;
 
-    @Value("${llm.client.timeout:30s}")
+    @Value("${llm.client.timeout:60s}")
     private Duration llmTimeout;
 
     @Value("${llm.client.model:local-model}")

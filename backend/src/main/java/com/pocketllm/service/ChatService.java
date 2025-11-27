@@ -1,11 +1,12 @@
-
 package com.pocketllm.service;
 
 import com.pocketllm.model.entity.Chat;
 import com.pocketllm.model.entity.ChatHistory;
+import com.pocketllm.model.entity.QueryCache;
 import com.pocketllm.repository.ChatRepository;
 import com.pocketllm.repository.ChatHistoryRepository;
-import com.pocketllm.llm.LlmClient; // Import the LLM client
+import com.pocketllm.repository.QueryCacheRepository;
+import com.pocketllm.llm.LlmClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,13 +18,16 @@ public class ChatService {
 
     private final ChatRepository chatRepository;
     private final ChatHistoryRepository chatHistoryRepository;
-    private final LlmClient llmClient; // Inject LLMClient
+    private final QueryCacheRepository queryCacheRepository;
+    private final LlmClient llmClient;
 
     public ChatService(ChatRepository chatRepository,
                        ChatHistoryRepository chatHistoryRepository,
+                       QueryCacheRepository queryCacheRepository,
                        LlmClient llmClient) {
         this.chatRepository = chatRepository;
         this.chatHistoryRepository = chatHistoryRepository;
+        this.queryCacheRepository = queryCacheRepository;
         this.llmClient = llmClient;
     }
 
@@ -74,29 +78,57 @@ public class ChatService {
     }
 
     /**
-     * Process user message: save user message, call LLM, save LLM response
+     * Process user message: check cache first, then call LLM if not cached
      */
     public String processUserMessage(String userId, String chatId, String userMessage) {
-        // Validate chat ownership
+        // 1. Validate chat ownership
         if (!chatRepository.existsByChatIdAndUserId(chatId, userId)) {
             throw new IllegalArgumentException("Chat not found or access denied");
         }
 
-        // Save user message
+        // 2. Save user message to chat history
         saveMessageForUser(userId, chatId, userMessage, true);
 
-        // Prepare messages for LLM
-        List<Map<String, String>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "user", "content", userMessage));
+        // 3. Normalize query for cache lookup (trim and lowercase)
+        String normalizedQuery = userMessage.trim().toLowerCase();
 
-        // Call LLM
-        String llmResponse = llmClient.sendMessage(messages);
+        String llmResponse;
 
-        // Save LLM response
+        // 4. Check cache first
+        
+        if(!queryCacheRepository.existsByUserQuery(normalizedQuery)) {
+            // Cache MISS: call LLM
+            List<Map<String, String>> messages = new ArrayList<>();
+            llmResponse = llmClient.sendMessage(messages);
+
+            // Save to cache for future queries
+            QueryCache newCache = QueryCache.builder()
+                    .userQuery(normalizedQuery)
+                    .llmResponse(llmResponse)
+                    .createdAt(LocalDateTime.now())
+                    .lastAccessedAt(LocalDateTime.now())
+                    .hitCount(0)
+                    .build();
+            queryCacheRepository.save(newCache);
+        } else {
+            // Cache HIT: use cached response
+            Optional<QueryCache> cachedResponse = queryCacheRepository.findByUserQuery(normalizedQuery);
+
+            QueryCache cache = cachedResponse.get();
+            llmResponse = cache.getLlmResponse();
+
+            // Update cache statistics
+            cache.setLastAccessedAt(LocalDateTime.now());
+            cache.setHitCount(cache.getHitCount() + 1);
+            queryCacheRepository.save(cache);
+        }
+
+       
+        // 5. Save LLM response to chat history
         saveMessageForUser(userId, chatId, llmResponse, false);
-
         return llmResponse;
     }
+
 
     /**
      * Delete a chat and its history for a user (ownership check)
@@ -109,4 +141,13 @@ public class ChatService {
         chatHistoryRepository.deleteByChatId(chatId);
         chatRepository.deleteByChatId(chatId);
     }
+
+    /**
+     * Clear all query cache entries
+     */
+    @Transactional
+    public void clearQueryCache() {
+        queryCacheRepository.deleteAll();
+    }
+
 }
