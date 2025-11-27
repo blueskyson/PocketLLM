@@ -115,7 +115,7 @@ public class ChatService {
             Optional<QueryCache> cachedResponse = queryCacheRepository.findByUserQuery(normalizedQuery);
 
             QueryCache cache = cachedResponse.get();
-            llmResponse = cache.getLlmResponse();
+            llmResponse = "*** FROM CACHE ***\n" +cache.getLlmResponse();
 
             // Update cache statistics
             cache.setLastAccessedAt(LocalDateTime.now());
