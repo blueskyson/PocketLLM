@@ -36,7 +36,7 @@ public class LlmClient {
             Map<String, Object> payload = new HashMap<>();
             payload.put("model", llmModel);
             payload.put("messages", messages);
-            payload.put("max_tokens", 512);
+            payload.put("max_tokens", 100);
             payload.put("temperature", 0.7);
             payload.put("top_p", 0.9);
 
