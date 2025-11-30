@@ -99,6 +99,7 @@ public class ChatService {
         if(!queryCacheRepository.existsByUserQuery(normalizedQuery)) {
             // Cache MISS: call LLM
             List<Map<String, String>> messages = new ArrayList<>();
+            messages.add(Map.of("role", "user", "content", userMessage));
             llmResponse = llmClient.sendMessage(messages);
 
             // Save to cache for future queries
