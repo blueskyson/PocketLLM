@@ -22,8 +22,6 @@ import {
 import './global.css';
 
 import fetch from '@/__create/fetch';
-// @ts-ignore
-import { SessionProvider } from '@auth/create/react';
 import { useNavigate } from 'react-router';
 import { serializeError } from 'serialize-error';
 import { Toaster } from 'sonner';
@@ -391,8 +389,6 @@ export function Layout({ children }: { children: ReactNode }) {
 
 export default function App() {
   return (
-    <SessionProvider>
-      <Outlet />
-    </SessionProvider>
+    <Outlet />
   );
 }
