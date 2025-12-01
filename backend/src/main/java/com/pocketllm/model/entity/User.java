@@ -1,10 +1,17 @@
 package com.pocketllm.model.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+
 import java.util.UUID;
 
 @Entity
 @Table(name = "users")
+@Data
+@AllArgsConstructor
+@Builder
 public class User {
 
     @Id
@@ -22,32 +29,6 @@ public class User {
 
     public User() {
         this.uuid = UUID.randomUUID().toString();
-    }
-
-    // Getters and setters
-
-    public Integer getId() {
-        return id;
-    }
-
-    public String getUuid() {
-        return uuid;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
     }
 }
 

@@ -5,10 +5,7 @@ import com.pocketllm.model.request.SignupRequest;
 import com.pocketllm.model.response.AuthResponse;
 import com.pocketllm.service.AuthService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -41,5 +38,20 @@ public class AuthController {
         }
 
         return ResponseEntity.ok(new AuthResponse(sessionId));
+    }
+
+    @GetMapping("/validate")
+    public ResponseEntity<?> validate(@RequestHeader("X-Session-Id") String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("valid", false));
+        }
+
+        String userId = authService.validateSession(sessionId);
+
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("valid", false));
+        }
+
+        return ResponseEntity.ok(Map.of("valid", true));
     }
 }

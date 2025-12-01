@@ -26,60 +26,69 @@ export default function ChatInterface() {
 
   // Redirect to signin if not authenticated
   useEffect(() => {
-    const sessionId =
-      typeof window !== "undefined" ? localStorage.getItem("sessionId") : null;
-
-    if (!sessionId) {
-      window.location.href = "/account/signin";
-      return;
-    }
-
-    const loadConversations = async () => {
-      try {
-        const res = await fetch("/api/chat/list", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Session-Id": sessionId,
-          },
-        });
-
-        if (!res.ok) {
-          console.error(`Failed to load conversations: ${res.status}`);
-          return;
-        }
-
-        const data = await res.json();
-        const conversations = Array.isArray(data?.conversations)
-          ? data.conversations
-          : Array.isArray(data)
-          ? data
-          : [];
-
-        // Sort by createdAt
-        conversations.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-
-        setConversationsData(conversations);
-
-        // Force a "New Conversation" (Draft) state immediately.
-        setCurrentConversationId(null);
-        setCurrentConversationTitle("New Conversation");
-        setCurrentConversation({
-          chatId: null,
-          title: "New Conversation",
-          messages: [],
-          createdAt: Date.now(),
-          __draft: true,
-        });
-        
-        setTimeout(() => textareaRef.current?.focus(), 100);
-
-      } catch (err) {
-        console.error("Error loading conversations:", err);
+    const sessionId = localStorage.getItem("sessionId");
+  
+    const validateSession = async () => {
+      if (!sessionId) {
+        window.location.href = "/account/signin";
+        return false;
       }
+  
+      const res = await fetch("/api/auth/validate", {
+        headers: { "X-Session-Id": sessionId },
+      });
+  
+      if (!res.ok) {
+        localStorage.removeItem("sessionId");
+        window.location.href = "/account/signin";
+        return false;
+      }
+  
+      return true;
     };
-
-    loadConversations();
+  
+    const loadConversations = async () => {
+      const res = await fetch("/api/chat/list", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-Id": sessionId,
+        },
+      });
+  
+      if (!res.ok) {
+        console.error(`Failed to load conversations: ${res.status}`);
+        return;
+      }
+  
+      const data = await res.json();
+      const conversations = Array.isArray(data?.conversations)
+        ? data.conversations
+        : Array.isArray(data)
+        ? data
+        : [];
+  
+      conversations.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+  
+      setConversationsData(conversations);
+  
+      setCurrentConversationId(null);
+      setCurrentConversationTitle("New Conversation");
+      setCurrentConversation({
+        chatId: null,
+        title: "New Conversation",
+        messages: [],
+        createdAt: Date.now(),
+        __draft: true,
+      });
+  
+      setTimeout(() => textareaRef.current?.focus(), 100);
+    };
+  
+    (async () => {
+      const ok = await validateSession();
+      if (ok) await loadConversations();
+    })();
   }, []);
 
   const scrollToBottom = useCallback(() => {

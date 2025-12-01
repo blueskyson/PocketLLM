@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { BACKEND_ENDPOINT } from "@/app/config";
 
 function MainComponent() {
   const [error, setError] = useState(null);
@@ -19,7 +18,7 @@ function MainComponent() {
     }
 
     try {
-      const res = await fetch(`${BACKEND_ENDPOINT}/api/auth/signup`, {
+      const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
