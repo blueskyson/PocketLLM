@@ -14,6 +14,32 @@ export default function ApiKeysPage() {
 
   const queryClient = useQueryClient();
 
+  // Redirect to signin if not authenticated
+  useEffect(() => {
+    const sessionId = localStorage.getItem("sessionId");
+
+    const validateSession = async () => {
+      if (!sessionId) {
+        window.location.href = "/account/signin";
+        return false;
+      }
+
+      const res = await fetch("/api/auth/validate", {
+        headers: { "X-Session-Id": sessionId },
+      });
+
+      if (!res.ok) {
+        localStorage.removeItem("sessionId");
+        window.location.href = "/account/signin";
+        return false;
+      }
+
+      return true;
+    };
+
+    validateSession();
+  }, []);
+
   // --- 🟦 Mock 資料 ---
   const mockKeys = [
     {

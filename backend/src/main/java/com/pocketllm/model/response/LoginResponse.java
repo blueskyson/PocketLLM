@@ -1,27 +1,11 @@
 package com.pocketllm.model.response;
 
+import lombok.Data;
+import lombok.experimental.Accessors;
+
+@Data
+@Accessors(chain = true)
 public class LoginResponse {
     private String userUuid;
     private String email;
-
-    public LoginResponse(String uuid, String email) {
-        this.userUuid = uuid;
-        this.email = email;
-    }
-
-    public String getUserUuid() {
-        return userUuid;
-    }
-
-    public void setUserUuid(String userUuid) {
-        this.userUuid = userUuid;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
 }

@@ -2,12 +2,14 @@ package com.pocketllm.model.dto;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.experimental.Accessors;
 
 import java.util.List;
 import java.util.Map;
 
 @Data
 @Builder
+@Accessors(chain = true)
 public class AdminStatsDTO {
     private long totalUsers;
     private long totalConversations;

@@ -16,29 +16,58 @@ export default function AdminDashboard() {
 
   const user = { email: "admin@example.com" };
 
-  // Redirect to login if no session ID
   useEffect(() => {
     const sessionId =
       typeof window !== "undefined"
         ? localStorage.getItem("sessionId")
         : null;
-
+  
     if (!sessionId) {
       window.location.href = "/account/signin";
       return;
     }
-
-    // Fetch admin stats
-    fetch("/api/admin/stats")
-      .then((res) => res.json())
-      .then((data) => setStats(data))
-      .catch((err) => console.error("Failed to load admin stats:", err));
-
-    // Fetch chat overview
-    fetch("/api/admin/chats")
-      .then((res) => res.json())
-      .then((data) => setChats(data))
-      .catch((err) => console.error("Failed to load chats:", err));
+  
+    // 1️. Validate session + admin permission
+    const validateAndLoad = async () => {
+      try {
+        const validateRes = await fetch("/api/auth/validate", {
+          headers: { "X-Session-Id": sessionId },
+        });
+  
+        if (!validateRes.ok) {
+          localStorage.removeItem("sessionId");
+          window.location.href = "/account/signin";
+          return;
+        }
+  
+        const validateData = await validateRes.json();
+  
+        if (!validateData.isAdmin) {
+          alert("You do not have permission to access the admin console.");
+          window.location.href = "/";
+          return;
+        }
+  
+        // 2️. Load admin stats
+        const statsRes = await fetch("/api/admin/stats", {
+          headers: { "X-Session-Id": sessionId },
+        });
+        const statsData = await statsRes.json();
+        setStats(statsData);
+  
+        // 3️. Load chat overview
+        const chatsRes = await fetch("/api/admin/chats", {
+          headers: { "X-Session-Id": sessionId },
+        });
+        const chatsData = await chatsRes.json();
+        setChats(chatsData);
+  
+      } catch (err) {
+        console.error("Admin load error:", err);
+      }
+    };
+  
+    validateAndLoad();
   }, []);
 
   const handleDeleteChat = async (chatId) => {

@@ -35,5 +35,12 @@ public class AuthService {
                 .map(u -> sessionStore.createSession(u.getUuid()))   // 產生 session
                 .orElse(null);
     }
+
+    public User validateSessionAndGetUser(String sessionId) {
+        String userId = sessionStore.getUserId(sessionId);
+        if (userId == null)
+            return null;
+        return userRepository.findByUuid(userId).orElse(null);
+    }
 }
 
