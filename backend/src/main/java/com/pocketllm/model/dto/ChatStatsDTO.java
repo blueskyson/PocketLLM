@@ -6,7 +6,7 @@ import lombok.Data;
 @Data
 @Builder
 public class ChatStatsDTO {
-    private Long chatId;
+    private String chatId;
     private String title;
     private String userEmail;
     private Long messageCount;

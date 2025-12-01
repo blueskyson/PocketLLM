@@ -1,12 +1,14 @@
 package com.pocketllm.service;
 
 import com.pocketllm.model.dto.AdminStatsDTO;
+import com.pocketllm.model.dto.ChatStatsDTO;
 import com.pocketllm.model.entity.ChatHistory;
 import com.pocketllm.repository.ChatHistoryRepository;
 import com.pocketllm.repository.ChatRepository;
 import com.pocketllm.repository.QueryCacheRepository;
 import com.pocketllm.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -88,5 +90,15 @@ public class AdminService {
                 .cacheSize(cacheSize)
                 .topCachedQueries(topQueries)
                 .build();
+    }
+
+    public List<ChatStatsDTO> getChatStats() {
+        return chatRepository.findAllChatStats();
+    }
+
+    @Transactional
+    public void deleteChat(String chatId) {
+        chatHistoryRepository.deleteByChatId(chatId);
+        chatRepository.deleteByChatId(chatId);
     }
 }

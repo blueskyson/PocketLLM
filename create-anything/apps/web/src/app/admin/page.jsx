@@ -12,6 +12,7 @@ import {
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
+  const [chats, setChats] = useState([]);
 
   const user = { email: "admin@example.com" };
 
@@ -31,10 +32,21 @@ export default function AdminDashboard() {
     fetch("/api/admin/stats")
       .then((res) => res.json())
       .then((data) => setStats(data))
-      .catch((err) => {
-        console.error("Failed to load admin stats:", err);
-      });
+      .catch((err) => console.error("Failed to load admin stats:", err));
+
+    // Fetch chat overview
+    fetch("/api/admin/chats")
+      .then((res) => res.json())
+      .then((data) => setChats(data))
+      .catch((err) => console.error("Failed to load chats:", err));
   }, []);
+
+  const handleDeleteChat = async (chatId) => {
+    if (!confirm("Are you sure you want to delete this chat?")) return;
+
+    await fetch(`/api/admin/chats/${chatId}`, { method: "DELETE" });
+    setChats(chats.filter((c) => c.chatId !== chatId));
+  };
 
   if (!stats) {
     return (
@@ -161,6 +173,51 @@ export default function AdminDashboard() {
                     : "N/A"}
                 </Metric>
               </div>
+            </div>
+          </div>
+
+          {/* Chat Overview */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-purple-600" />
+                Chats Overview
+              </h2>
+            </div>
+            <div className="p-6">
+              {chats.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">No chats yet</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-600 border-b">
+                      <th className="py-2">Title</th>
+                      <th className="py-2">User</th>
+                      <th className="py-2 w-24">Messages</th>
+                      <th className="py-2 w-32">Size (bytes)</th>
+                      <th className="py-2 w-24">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chats.map((chat) => (
+                      <tr key={chat.chatId} className="border-b">
+                        <td className="py-2 text-gray-800">{chat.title}</td>
+                        <td className="py-2 text-gray-800">{chat.userEmail}</td>
+                        <td className="py-2 text-gray-900 font-medium">{chat.messageCount}</td>
+                        <td className="py-2 text-gray-900 font-medium">{chat.sizeBytes}</td>
+                        <td className="py-2">
+                          <button
+                            onClick={() => handleDeleteChat(chat.chatId)}
+                            className="px-3 py-1 text-white bg-red-600 hover:bg-red-700 rounded"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
 
