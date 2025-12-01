@@ -14,7 +14,7 @@ export default function ApiKeysPage() {
 
   const queryClient = useQueryClient();
 
-  // --- 🟦 Placeholder API: 模擬資料 ---
+  // --- 🟦 Mock 資料 ---
   const mockKeys = [
     {
       id: 1,
@@ -35,22 +35,21 @@ export default function ApiKeysPage() {
   // Fetch API keys (placeholder)
   const {
     data: keysData,
-    loading: keysLoading,
+    isLoading: keysLoading,
     error: keysError,
   } = useQuery({
     queryKey: ["api-keys"],
     queryFn: async () => {
-      // 模擬 delay
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 300));
       return { keys: mockKeys };
     },
-    enabled: false,
+    enabled: true, // ← ★ 修正：要讓它真的 fetch mock data
   });
 
-  // Create new API key (placeholder)
+  // 新增 key
   const createKeyMutation = useMutation({
     mutationFn: async (name) => {
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 400));
       return {
         id: Date.now(),
         key_name: name,
@@ -59,27 +58,33 @@ export default function ApiKeysPage() {
         last_used_at: null,
       };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries(["api-keys"]);
+    onSuccess: (newKey) => {
+      // 直接把新 key 加進快取，避免重新 fetch mock keys
+      const old = queryClient.getQueryData(["api-keys"])?.keys ?? [];
+      queryClient.setQueryData(["api-keys"], { keys: [...old, newKey] });
+
       setShowCreateForm(false);
       setNewKeyName("");
     },
   });
 
-  // Revoke key (placeholder)
+  // 刪除 key
   const revokeKeyMutation = useMutation({
     mutationFn: async (keyId) => {
-      await new Promise((r) => setTimeout(r, 300));
-      return { success: true };
+      await new Promise((r) => setTimeout(r, 200));
+      return true;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries(["api-keys"]);
+    onSuccess: (_, keyId) => {
+      const old = queryClient.getQueryData(["api-keys"])?.keys ?? [];
+      queryClient.setQueryData(["api-keys"], {
+        keys: old.filter((k) => k.id !== keyId),
+      });
     },
   });
 
   const keys = keysData?.keys || [];
 
-  // Auto-select first key for playground
+  // 初次載入自動選第一把 key
   useEffect(() => {
     if (keys.length > 0 && !selectedKey) {
       setSelectedKey(keys[0].api_key);
@@ -87,23 +92,23 @@ export default function ApiKeysPage() {
   }, [keys, selectedKey]);
 
   const toggleKeyVisibility = (keyId) => {
-    const newVisible = new Set(visibleKeys);
-    if (newVisible.has(keyId)) newVisible.delete(keyId);
-    else newVisible.add(keyId);
-    setVisibleKeys(newVisible);
+    const set2 = new Set(visibleKeys);
+    if (set2.has(keyId)) set2.delete(keyId);
+    else set2.add(keyId);
+    setVisibleKeys(set2);
   };
 
   const copyToClipboard = async (text, label) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedText(label);
-      setTimeout(() => setCopiedText(""), 2000);
+      setTimeout(() => setCopiedText(""), 1500);
     } catch (err) {
       console.error("Failed to copy:", err);
     }
   };
 
-  // --- 🟦 Playground 呼叫 placeholder ---
+  // Playground mock
   const testPlayground = async () => {
     if (!selectedKey || !playgroundMessage.trim()) return;
 
@@ -119,7 +124,7 @@ export default function ApiKeysPage() {
     setPlaygroundLoading(false);
   };
 
-  // --- 下面 UI 完全不動 ---
+  // --- UI ---
   return (
     <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
       {/* Header */}
@@ -186,7 +191,7 @@ export default function ApiKeysPage() {
           </button>
         </div>
 
-        {/* Create Key Form */}
+        {/* Create Form */}
         {showCreateForm && (
           <div
             style={{
@@ -206,95 +211,46 @@ export default function ApiKeysPage() {
             >
               Create New API Key
             </h3>
-            <div
-              style={{
-                display: "flex",
-                gap: "1rem",
-                flexWrap: "wrap",
-                alignItems: "end",
-              }}
-            >
-              <div style={{ flex: "1", minWidth: "200px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.875rem",
-                    fontWeight: "medium",
-                    color: "#374151",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  Key Name
-                </label>
-                <input
-                  type="text"
-                  value={newKeyName}
-                  onChange={(e) => setNewKeyName(e.target.value)}
-                  placeholder="e.g., My App Integration"
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem 0.75rem",
-                    border: "1px solid #D1D5DB",
-                    borderRadius: "6px",
-                    fontSize: "0.875rem",
-                  }}
-                />
-              </div>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
-                <button
-                  onClick={() => createKeyMutation.mutate(newKeyName)}
-                  disabled={!newKeyName.trim() || createKeyMutation.loading}
-                  style={{
-                    backgroundColor: newKeyName.trim() ? "#10B981" : "#9CA3AF",
-                    color: "white",
-                    padding: "0.5rem 1rem",
-                    borderRadius: "6px",
-                    border: "none",
-                    cursor: newKeyName.trim() ? "pointer" : "not-allowed",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  {createKeyMutation.loading ? "Creating..." : "Create"}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    setNewKeyName("");
-                  }}
-                  style={{
-                    backgroundColor: "white",
-                    color: "#6B7280",
-                    padding: "0.5rem 1rem",
-                    borderRadius: "6px",
-                    border: "1px solid #D1D5DB",
-                    cursor: "pointer",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
+            <div style={{ display: "flex", gap: "1rem" }}>
+              <input
+                type="text"
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                placeholder="e.g., My App Integration"
+                style={{
+                  flex: 1,
+                  padding: "0.5rem",
+                  border: "1px solid #D1D5DB",
+                  borderRadius: "6px",
+                }}
+              />
+              <button
+                onClick={() => createKeyMutation.mutate(newKeyName)}
+                disabled={!newKeyName.trim()}
+                style={{
+                  backgroundColor: "#10B981",
+                  color: "white",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "6px",
+                }}
+              >
+                Create
+              </button>
             </div>
           </div>
         )}
 
-        {/* Keys List */}
+        {/* Keys */}
         {keysLoading ? (
-          <div
-            style={{ textAlign: "center", color: "#6B7280", padding: "2rem" }}
-          >
-            Loading API keys...
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            Loading...
           </div>
         ) : keys.length === 0 ? (
-          <div
-            style={{ textAlign: "center", color: "#6B7280", padding: "2rem" }}
-          >
-            No API keys yet. Create your first one to get started!
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            No API keys yet.
           </div>
         ) : (
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             {keys.map((key) => (
               <div
                 key={key.id}
@@ -304,100 +260,52 @@ export default function ApiKeysPage() {
                   padding: "1rem",
                 }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    flexWrap: "wrap",
-                    gap: "1rem",
-                  }}
-                >
-                  <div style={{ flex: "1", minWidth: "200px" }}>
-                    <div
-                      style={{ fontWeight: "medium", marginBottom: "0.5rem" }}
-                    >
-                      {key.key_name}
-                    </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ fontWeight: "bold" }}>{key.key_name}</div>
                     <div
                       style={{
                         fontFamily: "monospace",
-                        fontSize: "0.875rem",
-                        color: "#6B7280",
-                        backgroundColor: "#F9FAFB",
                         padding: "0.5rem",
+                        background: "#F3F4F6",
                         borderRadius: "4px",
-                        marginBottom: "0.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
+                        marginTop: "0.5rem",
                       }}
                     >
-                      <span>
-                        {visibleKeys.has(key.id)
-                          ? key.api_key
-                          : `${key.api_key.substring(0, 12)}${"*".repeat(key.api_key.length - 12)}`}
-                      </span>
+                      {visibleKeys.has(key.id)
+                        ? key.api_key
+                        : key.api_key.substring(0, 12) +
+                        "*".repeat(key.api_key.length - 12)}
                       <button
                         onClick={() => toggleKeyVisibility(key.id)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          color: "#6B7280",
-                        }}
+                        style={{ marginLeft: "1rem" }}
                       >
-                        {visibleKeys.has(key.id) ? (
-                          <EyeOff size={16} />
-                        ) : (
-                          <Eye size={16} />
-                        )}
+                        {visibleKeys.has(key.id) ? <EyeOff /> : <Eye />}
                       </button>
                       <button
                         onClick={() =>
                           copyToClipboard(key.api_key, `key-${key.id}`)
                         }
-                        style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          color: "#6B7280",
-                        }}
+                        style={{ marginLeft: "0.5rem" }}
                       >
-                        <Copy size={16} />
+                        <Copy />
                       </button>
                       {copiedText === `key-${key.id}` && (
-                        <span style={{ color: "#10B981", fontSize: "0.75rem" }}>
-                          Copied!
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "#9CA3AF" }}>
-                      Created: {new Date(key.created_at).toLocaleDateString()}
-                      {key.last_used_at && (
-                        <span>
-                          {" "}
-                          • Last used:{" "}
-                          {new Date(key.last_used_at).toLocaleDateString()}
-                        </span>
+                        <span style={{ color: "#10B981" }}>Copied!</span>
                       )}
                     </div>
                   </div>
+
                   <button
                     onClick={() => revokeKeyMutation.mutate(key.id)}
                     style={{
                       backgroundColor: "#EF4444",
                       color: "white",
-                      padding: "0.5rem",
                       borderRadius: "6px",
-                      border: "none",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      fontSize: "0.875rem",
+                      padding: "0.5rem",
                     }}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 />
                   </button>
                 </div>
               </div>
@@ -406,7 +314,7 @@ export default function ApiKeysPage() {
         )}
       </div>
 
-      {/* API Playground */}
+      {/* Playground */}
       <div
         style={{
           backgroundColor: "white",
@@ -415,249 +323,101 @@ export default function ApiKeysPage() {
           boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            marginBottom: "1.5rem",
-          }}
-        >
-          <Terminal size={20} />
-          <h2
-            style={{
-              fontSize: "1.5rem",
-              fontWeight: "semibold",
-              color: "#111827",
-            }}
-          >
-            API Playground
-          </h2>
-        </div>
+        <h2 style={{ fontSize: "1.5rem", display: "flex", gap: "0.5rem" }}>
+          <Terminal /> API Playground
+        </h2>
 
         {keys.length === 0 ? (
-          <div
-            style={{
-              textAlign: "center",
-              color: "#6B7280",
-              padding: "2rem",
-              backgroundColor: "#F9FAFB",
-              borderRadius: "8px",
-            }}
-          >
-            Create an API key to test the chat endpoint
+          <div style={{ padding: "2rem", textAlign: "center" }}>
+            Create an API key first
           </div>
         ) : (
           <>
-            {/* API Key Selection */}
-            <div style={{ marginBottom: "1.5rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.875rem",
-                  fontWeight: "medium",
-                  color: "#374151",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Select API Key
-              </label>
+            <div style={{ marginBottom: "1rem" }}>
               <select
                 value={selectedKey}
                 onChange={(e) => setSelectedKey(e.target.value)}
-                style={{
-                  width: "100%",
-                  maxWidth: "400px",
-                  padding: "0.5rem 0.75rem",
-                  border: "1px solid #D1D5DB",
-                  borderRadius: "6px",
-                  fontSize: "0.875rem",
-                  fontFamily: "monospace",
-                }}
+                style={{ padding: "0.5rem", borderRadius: "6px" }}
               >
-                {keys.map((key) => (
-                  <option key={key.id} value={key.api_key}>
-                    {key.key_name} - {key.api_key.substring(0, 16)}...
+                {keys.map((k) => (
+                  <option key={k.id} value={k.api_key}>
+                    {k.key_name}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Message Input */}
-            <div style={{ marginBottom: "1.5rem" }}>
-              <label
+            <textarea
+              value={playgroundMessage}
+              onChange={(e) => setPlaygroundMessage(e.target.value)}
+              placeholder="Type message..."
+              style={{
+                width: "100%",
+                minHeight: "80px",
+                padding: "0.75rem",
+                borderRadius: "6px",
+                border: "1px solid #D1D5DB",
+              }}
+            />
+
+            {/* cURL Preview */}
+            {selectedKey && playgroundMessage && (
+              <div
                 style={{
-                  display: "block",
-                  fontSize: "0.875rem",
-                  fontWeight: "medium",
-                  color: "#374151",
-                  marginBottom: "0.5rem",
+                  marginTop: "1rem",
+                  background: "#111827",
+                  color: "white",
+                  padding: "1rem",
+                  borderRadius: "8px",
+                  fontSize: "0.85rem",
+                  overflowX: "auto",
+                  whiteSpace: "pre-wrap",
                 }}
               >
-                Test Message
-              </label>
-              <div
-                style={{ display: "flex", gap: "1rem", alignItems: "flex-end" }}
-              >
-                <textarea
-                  value={playgroundMessage}
-                  onChange={(e) => setPlaygroundMessage(e.target.value)}
-                  placeholder="Type your message here..."
-                  rows={3}
-                  style={{
-                    flex: "1",
-                    padding: "0.75rem",
-                    border: "1px solid #D1D5DB",
-                    borderRadius: "6px",
-                    fontSize: "0.875rem",
-                    resize: "vertical",
-                    minHeight: "80px",
-                  }}
-                />
-                <button
-                  onClick={testPlayground}
-                  disabled={
-                    !selectedKey ||
-                    !playgroundMessage.trim() ||
-                    playgroundLoading
-                  }
-                  style={{
-                    backgroundColor:
-                      playgroundMessage.trim() && selectedKey
-                        ? "#3B82F6"
-                        : "#9CA3AF",
-                    color: "white",
-                    padding: "0.75rem 1.5rem",
-                    borderRadius: "6px",
-                    border: "none",
-                    cursor:
-                      playgroundMessage.trim() && selectedKey
-                        ? "pointer"
-                        : "not-allowed",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    fontSize: "0.875rem",
-                    fontWeight: "500",
-                    height: "48px",
-                  }}
-                >
-                  <Send size={16} />
-                  {playgroundLoading ? "Sending..." : "Send"}
-                </button>
-              </div>
-            </div>
-
-            {/* Response */}
-            {(playgroundResponse || playgroundLoading) && (
-              <div style={{ marginBottom: "1rem" }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.875rem",
-                    fontWeight: "medium",
-                    color: "#374151",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  Response
-                </label>
-                <div
-                  style={{
-                    backgroundColor: "#F9FAFB",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "6px",
-                    padding: "1rem",
-                    fontFamily: "monospace",
-                    fontSize: "0.875rem",
-                    whiteSpace: "pre-wrap",
-                    minHeight: "100px",
-                    maxHeight: "300px",
-                    overflowY: "auto",
-                  }}
-                >
-                  {playgroundLoading ? (
-                    <span style={{ color: "#6B7280" }}>
-                      Waiting for response...
-                    </span>
-                  ) : (
-                    playgroundResponse
-                  )}
-                </div>
+                <pre style={{ margin: 0 }}>
+                  {`curl -X POST \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${selectedKey}" \\
+  -d '{
+    "model": "pocket-llm-chat",
+    "messages": [{"role": "user", "content": "${playgroundMessage}"}]
+  }' \\
+  http://localhost:8080/api/playground/chat`}
+                </pre>
               </div>
             )}
 
-            {/* API Documentation */}
-            <div
+            <button
+              onClick={testPlayground}
+              disabled={!playgroundMessage.trim()}
               style={{
-                backgroundColor: "#F9FAFB",
-                border: "1px solid #E5E7EB",
-                borderRadius: "8px",
-                padding: "1.5rem",
+                marginTop: "1rem",
+                backgroundColor: "#3B82F6",
+                color: "white",
+                padding: "0.5rem 1.5rem",
+                borderRadius: "6px",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
               }}
             >
-              <h3
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: "medium",
-                  marginBottom: "1rem",
-                  color: "#374151",
-                }}
-              >
-                API Usage
-              </h3>
-              <div
-                style={{
-                  fontSize: "0.875rem",
-                  color: "#6B7280",
-                  lineHeight: "1.5",
-                }}
-              >
-                <p style={{ marginBottom: "1rem" }}>
-                  <strong>Endpoint:</strong>{" "}
-                  <code
-                    style={{
-                      backgroundColor: "#E5E7EB",
-                      padding: "0.25rem",
-                      borderRadius: "3px",
-                    }}
-                  >
-                    POST /api/v1/chat
-                  </code>
-                </p>
-                <p style={{ marginBottom: "1rem" }}>
-                  <strong>Authentication:</strong> Include your API key in the
-                  Authorization header:{" "}
-                  <code
-                    style={{
-                      backgroundColor: "#E5E7EB",
-                      padding: "0.25rem",
-                      borderRadius: "3px",
-                    }}
-                  >
-                    Authorization: Bearer YOUR_API_KEY
-                  </code>
-                </p>
-                <p style={{ marginBottom: "1rem" }}>
-                  <strong>Request Body:</strong>
-                </p>
-                <pre
-                  style={{
-                    backgroundColor: "#1F2937",
-                    color: "#F3F4F6",
-                    padding: "1rem",
-                    borderRadius: "6px",
-                    fontSize: "0.8rem",
-                    overflow: "auto",
-                  }}
-                >
-                  {`{
-  "message": "Your message here",
-  "conversationId": null, // Optional: conversation ID
-  "useCache": true       // Optional: enable response caching
-}`}
-                </pre>
-              </div>
+              <Send size={16} />
+              Send
+            </button>
+
+            <div
+              style={{
+                marginTop: "1rem",
+                padding: "1rem",
+                background: "#F3F4F6",
+                borderRadius: "6px",
+                minHeight: "100px",
+                fontFamily: "monospace",
+              }}
+            >
+              {playgroundLoading
+                ? "Loading..."
+                : playgroundResponse || "No response yet."}
             </div>
           </>
         )}
