@@ -1,50 +1,77 @@
-# you can delete this line if you want to remove the warning:
-# version: "3.8"
+version: '3.8'
 
 services:
+  # Model Downloader
   model-downloader:
-    image: curlimages/curl:latest
-    platform: linux/amd64
+    image: alpine:latest
+    container_name: model-downloader
     volumes:
       - ./models:/models
-    command:
-      - sh
-      - -c
-      - |
-          set -e
-          mkdir -p /models
-          if [ ! -f /models/Phi-3-mini-4k-instruct-q4.gguf ]; then
-            echo "Downloading Phi-3 Mini model..."
-            curl -L \
-              -o /models/Phi-3-mini-4k-instruct-q4.gguf \
-              "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf"
-            echo "Model download completed!"
-          else
-            echo "Model already exists, skipping download."
-          fi
+    command: >
+      sh -c "
+        if [ ! -f /models/Phi-3-mini-4k-instruct-q4.gguf ]; then
+          apk add --no-cache wget &&
+          wget -O /models/Phi-3-mini-4k-instruct-q4.gguf https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf
+        else
+          echo 'Model already exists, skipping download'
+        fi
+      "
 
-  llama-cpp-server:
+  # LLM Model Server
+  llm:
     image: ghcr.io/ggerganov/llama.cpp:server
     platform: linux/amd64
+    container_name: pocketllm-llm
     ports:
       - "8081:8080"
     volumes:
-      - ./models:/models
+      - ./models:/models:ro
+    command: >
+      -m /models/Phi-3-mini-4k-instruct-q4.gguf
+      --host 0.0.0.0
+      --port 8080
+      -c 4096
+      -ngl 0
     depends_on:
       model-downloader:
         condition: service_completed_successfully
-    command:
-      [
-        "--model", "/models/Phi-3-mini-4k-instruct-q4.gguf",
-        "--host", "0.0.0.0",
-        "--port", "8080",
-        "--ctx-size", "4096",
-        "--threads", "4"
-      ]
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 16G
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+
+  # Spring Boot Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pocketllm-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - LLM_CLIENT_URL=http://llm:8080/v1/chat/completions
+      - LLM_CLIENT_MODEL=Phi-3-mini-4k-instruct-q4
+      - LLM_CLIENT_TIMEOUT=120s
+    depends_on:
+      - llm
+    restart: unless-stopped
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./create-anything/apps/web
+      dockerfile: Dockerfile
+    container_name: pocketllm-frontend
+    ports:
+      - "4000:4000"
+    environment:
+      - VITE_API_URL=http://backend:8080
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  default:
+    name: pocketllm-network
