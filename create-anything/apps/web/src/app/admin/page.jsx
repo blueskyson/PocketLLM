@@ -48,6 +48,18 @@ export default function AdminDashboard() {
     setChats(chats.filter((c) => c.chatId !== chatId));
   };
 
+  const handleClearCache = async () => {
+    if (!confirm("Are you sure you want to delete all cached queries?")) return;
+
+    try {
+      await fetch("/api/admin/cache", { method: "DELETE" });
+      setStats(prev => ({ ...prev, topCachedQueries: [], cacheEntries: 0, totalCacheHits: 0, totalCacheMisses: 0, cacheHitRate: 0 }));
+    } catch (err) {
+      console.error("Failed to clear cache:", err);
+      alert("Failed to clear cache");
+    }
+  };
+
   if (!stats) {
     return (
       <div className="min-h-screen flex items-center justify-center text-gray-600">
@@ -223,11 +235,17 @@ export default function AdminDashboard() {
 
           {/* Top Cached Queries */}
           <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-purple-600" />
                 Most Cached Queries
               </h2>
+              <button
+                onClick={handleClearCache}
+                className="px-3 py-1 text-white bg-red-600 hover:bg-red-700 rounded text-sm"
+              >
+                Delete All Cache
+              </button>
             </div>
 
             <div className="p-6">

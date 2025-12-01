@@ -33,4 +33,10 @@ public class AdminController {
         adminService.deleteChat(chatId);
         return ResponseEntity.noContent().build();
     }
+
+    @DeleteMapping("/cache")
+    public ResponseEntity<Void> deleteAllCache() {
+        adminService.deleteCache();
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -101,4 +101,9 @@ public class AdminService {
         chatHistoryRepository.deleteByChatId(chatId);
         chatRepository.deleteByChatId(chatId);
     }
+
+    @Transactional
+    public void deleteCache() {
+        queryCacheRepository.deleteAll();
+    }
 }
