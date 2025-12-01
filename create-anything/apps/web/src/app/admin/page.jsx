@@ -46,7 +46,7 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <Server className="w-8 h-8 text-blue-600" />
-              Admin Dashboard
+              Admin Console
             </h1>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-600">

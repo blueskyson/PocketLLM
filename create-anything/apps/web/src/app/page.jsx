@@ -8,6 +8,7 @@ import {
   Settings,
   Trash2,
   Loader2,
+  Key
 } from "lucide-react";
 
 export default function ChatInterface() {
@@ -360,16 +361,34 @@ export default function ChatInterface() {
       >
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
+            {/* left: title */}
             <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <MessageCircle className="w-6 h-6 text-blue-600" />
-              Pocket LLM
+              PocketLLM
             </h1>
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1 text-gray-500 hover:text-gray-700 md:hidden"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
+
+            {/* right: API Key 管理 & Admin Console 按鈕 */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => (window.location.href = "/developer")}
+                title="API Key Management"
+                aria-label="API Key Management"
+                className="flex items-center gap-2 px-1 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-md shadow-sm transition"
+              >
+                <Key className="w-4 h-4" />
+                <span className="hidden sm:inline">API</span>
+              </button>
+
+              <button
+                onClick={() => (window.location.href = "/admin")}
+                title="Admin Console"
+                aria-label="Admin Console"
+                className="flex items-center gap-2 px-1 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-md shadow-sm transition"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="hidden sm:inline">Admin</span>
+              </button>
+            </div>
           </div>
           <button
             onClick={handleNewConversation}
