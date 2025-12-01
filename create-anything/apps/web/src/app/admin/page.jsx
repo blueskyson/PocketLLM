@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   BarChart3,
   Database,
@@ -11,32 +11,62 @@ import {
 } from "lucide-react";
 
 export default function AdminDashboard() {
-  // Placeholder user
+  const [stats, setStats] = useState(null);
+  const [chats, setChats] = useState([]);
+
   const user = { email: "admin@example.com" };
 
-  // Placeholder stats
-  const stats = {
-    totalUsers: 0,
-    totalConversations: 0,
-    totalMessages: 0,
-    cacheEntries: 0,
-    cacheHitRate: 0,
-    totalCacheHits: 0,
-    totalCacheMisses: 0,
-    messagesToday: 0,
-    activeConversations: 0,
-    avgResponseTime: null,
-    cacheSize: null,
-    topCachedQueries: [],
-  };
-
-  // Redirect if no session
+  // Redirect to login if no session ID
   useEffect(() => {
-    const sessionId = typeof window !== "undefined" ? localStorage.getItem("sessionId") : null;
+    const sessionId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("sessionId")
+        : null;
+
     if (!sessionId) {
       window.location.href = "/account/signin";
+      return;
     }
+
+    // Fetch admin stats
+    fetch("/api/admin/stats")
+      .then((res) => res.json())
+      .then((data) => setStats(data))
+      .catch((err) => console.error("Failed to load admin stats:", err));
+
+    // Fetch chat overview
+    fetch("/api/admin/chats")
+      .then((res) => res.json())
+      .then((data) => setChats(data))
+      .catch((err) => console.error("Failed to load chats:", err));
   }, []);
+
+  const handleDeleteChat = async (chatId) => {
+    if (!confirm("Are you sure you want to delete this chat?")) return;
+
+    await fetch(`/api/admin/chats/${chatId}`, { method: "DELETE" });
+    setChats(chats.filter((c) => c.chatId !== chatId));
+  };
+
+  const handleClearCache = async () => {
+    if (!confirm("Are you sure you want to delete all cached queries?")) return;
+
+    try {
+      await fetch("/api/admin/cache", { method: "DELETE" });
+      setStats(prev => ({ ...prev, topCachedQueries: [], cacheEntries: 0, totalCacheHits: 0, totalCacheMisses: 0, cacheHitRate: 0 }));
+    } catch (err) {
+      console.error("Failed to clear cache:", err);
+      alert("Failed to clear cache");
+    }
+  };
+
+  if (!stats) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-600">
+        Loading admin dashboard...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -74,57 +104,42 @@ export default function AdminDashboard() {
         <div className="space-y-8">
           {/* Overview Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Users className="w-6 h-6 text-blue-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-2xl font-semibold text-gray-900">{stats.totalUsers}</p>
-                  <p className="text-sm text-gray-600">Total Users</p>
-                </div>
-              </div>
-            </div>
+            <DashboardCard
+              icon={Users}
+              bg="bg-blue-100"
+              iconColor="text-blue-600"
+              value={stats.totalUsers}
+              label="Total Users"
+            />
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <MessageCircle className="w-6 h-6 text-green-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-2xl font-semibold text-gray-900">{stats.totalConversations}</p>
-                  <p className="text-sm text-gray-600">Conversations</p>
-                </div>
-              </div>
-            </div>
+            <DashboardCard
+              icon={MessageCircle}
+              bg="bg-green-100"
+              iconColor="text-green-600"
+              value={stats.totalConversations}
+              label="Conversations"
+            />
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Activity className="w-6 h-6 text-purple-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-2xl font-semibold text-gray-900">{stats.totalMessages}</p>
-                  <p className="text-sm text-gray-600">Total Messages</p>
-                </div>
-              </div>
-            </div>
+            <DashboardCard
+              icon={Activity}
+              bg="bg-purple-100"
+              iconColor="text-purple-600"
+              value={stats.totalMessages}
+              label="Total Messages"
+            />
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <Database className="w-6 h-6 text-orange-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-2xl font-semibold text-gray-900">{stats.cacheEntries}</p>
-                  <p className="text-sm text-gray-600">Cache Entries</p>
-                </div>
-              </div>
-            </div>
+            <DashboardCard
+              icon={Database}
+              bg="bg-orange-100"
+              iconColor="text-orange-600"
+              value={stats.cacheEntries}
+              label="Cache Entries"
+            />
           </div>
 
           {/* Cache Performance */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Cache Performance Box */}
             <div className="bg-white rounded-lg shadow">
               <div className="px-6 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -134,33 +149,21 @@ export default function AdminDashboard() {
               </div>
               <div className="p-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Cache Hit Rate</span>
-                    <span className="text-sm font-medium text-gray-900">
-                      {(stats.cacheHitRate * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-green-500 h-2 rounded-full"
-                      style={{ width: `${stats.cacheHitRate * 100}%` }}
-                    ></div>
-                  </div>
+                  <Metric label="Cache Hit Rate">
+                    {(stats.cacheHitRate * 100).toFixed(1)}%
+                  </Metric>
+
+                  <ProgressBar value={stats.cacheHitRate * 100} />
+
                   <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <p className="text-2xl font-semibold text-gray-900">{stats.totalCacheHits}</p>
-                      <p className="text-xs text-gray-600">Cache Hits</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-semibold text-gray-900">{stats.totalCacheMisses}</p>
-                      <p className="text-xs text-gray-600">Cache Misses</p>
-                    </div>
+                    <MiniMetric value={stats.totalCacheHits} label="Cache Hits" />
+                    <MiniMetric value={stats.totalCacheMisses} label="Cache Misses" />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Recent Activity */}
+            {/* System Metrics Box */}
             <div className="bg-white rounded-lg shadow">
               <div className="px-6 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -169,40 +172,158 @@ export default function AdminDashboard() {
                 </h2>
               </div>
               <div className="p-6 space-y-4 text-gray-600 text-sm">
-                <div className="flex items-center justify-between">
-                  <span>Messages Today</span>
-                  <span>{stats.messagesToday}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Active Conversations</span>
-                  <span>{stats.activeConversations}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Avg Response Time</span>
-                  <span>{stats.avgResponseTime ? `${stats.avgResponseTime.toFixed(2)}ms` : "N/A"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Cache Storage</span>
-                  <span>{stats.cacheSize ? `${(stats.cacheSize / 1024).toFixed(1)} KB` : "N/A"}</span>
-                </div>
+                <Metric label="Messages Today">{stats.messagesToday}</Metric>
+                <Metric label="Active Conversations">{stats.activeConversations}</Metric>
+                <Metric label="Avg Response Time">
+                  {stats.avgResponseTime
+                    ? `${stats.avgResponseTime.toFixed(2)}ms`
+                    : "N/A"}
+                </Metric>
+                <Metric label="Cache Storage">
+                  {stats.cacheSize
+                    ? `${(stats.cacheSize / 1024).toFixed(1)} KB`
+                    : "N/A"}
+                </Metric>
               </div>
+            </div>
+          </div>
+
+          {/* Chat Overview */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-purple-600" />
+                Chats Overview
+              </h2>
+            </div>
+            <div className="p-6">
+              {chats.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">No chats yet</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-600 border-b">
+                      <th className="py-2">Title</th>
+                      <th className="py-2">User</th>
+                      <th className="py-2 w-24">Messages</th>
+                      <th className="py-2 w-32">Size (bytes)</th>
+                      <th className="py-2 w-24">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chats.map((chat) => (
+                      <tr key={chat.chatId} className="border-b">
+                        <td className="py-2 text-gray-800">{chat.title}</td>
+                        <td className="py-2 text-gray-800">{chat.userEmail}</td>
+                        <td className="py-2 text-gray-900 font-medium">{chat.messageCount}</td>
+                        <td className="py-2 text-gray-900 font-medium">{chat.sizeBytes}</td>
+                        <td className="py-2">
+                          <button
+                            onClick={() => handleDeleteChat(chat.chatId)}
+                            className="px-3 py-1 text-white bg-red-600 hover:bg-red-700 rounded"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
 
           {/* Top Cached Queries */}
           <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-purple-600" />
                 Most Cached Queries
               </h2>
+              <button
+                onClick={handleClearCache}
+                className="px-3 py-1 text-white bg-red-600 hover:bg-red-700 rounded text-sm"
+              >
+                Delete All Cache
+              </button>
             </div>
+
             <div className="p-6">
-              <p className="text-gray-500 text-center py-4">No cached queries yet</p>
+              {stats.topCachedQueries.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">
+                  No cached queries yet
+                </p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-600 border-b">
+                      <th className="py-2">Query</th>
+                      <th className="py-2 w-24">Hits</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.topCachedQueries.map((q, i) => (
+                      <tr key={i} className="border-b">
+                        <td className="py-2 text-gray-800">{q.query}</td>
+                        <td className="py-2 text-gray-900 font-medium">
+                          {q.hits}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Components ---------------- */
+
+function DashboardCard({ icon: Icon, bg, iconColor, value, label }) {
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex items-center">
+        <div className={`p-2 rounded-lg ${bg}`}>
+          <Icon className={`w-6 h-6 ${iconColor}`} />
+        </div>
+        <div className="ml-4">
+          <p className="text-2xl font-semibold text-gray-900">{value}</p>
+          <p className="text-sm text-gray-600">{label}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Metric({ label, children }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-gray-600">{label}</span>
+      <span className="text-sm font-medium text-gray-900">{children}</span>
+    </div>
+  );
+}
+
+function MiniMetric({ value, label }) {
+  return (
+    <div>
+      <p className="text-2xl font-semibold text-gray-900">{value}</p>
+      <p className="text-xs text-gray-600">{label}</p>
+    </div>
+  );
+}
+
+function ProgressBar({ value }) {
+  return (
+    <div className="w-full bg-gray-200 rounded-full h-2">
+      <div
+        className="bg-green-500 h-2 rounded-full"
+        style={{ width: `${value}%` }}
+      ></div>
     </div>
   );
 }

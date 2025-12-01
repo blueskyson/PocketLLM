@@ -4,6 +4,7 @@ import com.pocketllm.model.entity.ChatHistory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -13,6 +14,9 @@ public interface ChatHistoryRepository extends JpaRepository<ChatHistory, Long> 
 
     // Hard delete all history for a chat
     void deleteByChatId(String chatId);
+
+    int countByTimestampAfter(LocalDateTime time);
+    int countByChatId(String chatId);
 }
 
 
