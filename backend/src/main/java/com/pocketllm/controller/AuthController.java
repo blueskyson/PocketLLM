@@ -1,5 +1,6 @@
 package com.pocketllm.controller;
 
+import com.pocketllm.model.entity.User;
 import com.pocketllm.model.request.LoginRequest;
 import com.pocketllm.model.request.SignupRequest;
 import com.pocketllm.model.response.AuthResponse;
@@ -46,12 +47,15 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("valid", false));
         }
 
-        String userId = authService.validateSession(sessionId);
-
-        if (userId == null) {
+        User user = authService.validateSessionAndGetUser(sessionId);
+        if (user == null) {
             return ResponseEntity.status(401).body(Map.of("valid", false));
         }
 
-        return ResponseEntity.ok(Map.of("valid", true));
+        boolean isAdmin = user.getEmail().equals("admin");
+        return ResponseEntity.ok(Map.of(
+                "valid", true,
+                "isAdmin", isAdmin
+        ));
     }
 }

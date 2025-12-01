@@ -36,8 +36,11 @@ public class AuthService {
                 .orElse(null);
     }
 
-    public String validateSession(String sessionId) {
-        return sessionStore.getUserId(sessionId);
+    public User validateSessionAndGetUser(String sessionId) {
+        String userId = sessionStore.getUserId(sessionId);
+        if (userId == null)
+            return null;
+        return userRepository.findByUuid(userId).orElse(null);
     }
 }
 
