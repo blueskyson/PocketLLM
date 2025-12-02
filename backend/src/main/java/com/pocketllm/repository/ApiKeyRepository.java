@@ -12,5 +12,6 @@ public interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
     List<ApiKey> findByUserIdOrderByCreatedAtDesc(String userId);
     Optional<ApiKey> findByUuidAndUserId(String uuid, String userId);
     void deleteByUuidAndUserId(String uuid, String userId);
+    Optional<ApiKey> findBySecret(String secret);
 }
 

@@ -156,20 +156,40 @@ export default function ApiKeysPage() {
     }
   };
 
-  // Playground mock
+  // Playground LLM call
   const testPlayground = async () => {
-    if (!selectedKey || !playgroundMessage.trim()) return;
+    const message = playgroundMessage.trim();
+    if (!selectedKey || !message) return;
 
     setPlaygroundLoading(true);
     setPlaygroundResponse("");
 
-    await new Promise((r) => setTimeout(r, 600));
+    try {
+      const res = await fetch("/api/playground/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${selectedKey}`,
+        },
+        body: JSON.stringify({
+          model: "pocket-llm-chat",
+          messages: [{ role: "user", content: message }],
+        }),
+      });
 
-    setPlaygroundResponse(
-      `Mock response: You said "${playgroundMessage.trim()}"`
-    );
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Failed to reach playground API");
+      }
 
-    setPlaygroundLoading(false);
+      const data = await res.json();
+      setPlaygroundResponse(data.result || data.llmResponse || "(empty response)");
+    } catch (err) {
+      console.error(err);
+      setPlaygroundResponse(`Error: ${err.message || err}`);
+    } finally {
+      setPlaygroundLoading(false);
+    }
   };
 
   // --- UI ---
@@ -517,7 +537,7 @@ export default function ApiKeysPage() {
 
             <button
               onClick={testPlayground}
-              disabled={!playgroundMessage.trim()}
+              disabled={!playgroundMessage.trim() || !selectedKey || playgroundLoading}
               style={{
                 marginTop: "1rem",
                 backgroundColor: "#3B82F6",

@@ -36,7 +36,7 @@ public class ApiKey {
     @Column(nullable = false)
     private String keyName;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false, columnDefinition = "TEXT", unique = true)
     private String secret;
 
     @Column(nullable = false)
