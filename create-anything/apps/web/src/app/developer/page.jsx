@@ -11,12 +11,15 @@ export default function ApiKeysPage() {
   const [playgroundResponse, setPlaygroundResponse] = useState("");
   const [playgroundLoading, setPlaygroundLoading] = useState(false);
   const [copiedText, setCopiedText] = useState("");
+  const [sessionToken, setSessionToken] = useState(null);
+  const [recentKey, setRecentKey] = useState(null);
 
   const queryClient = useQueryClient();
 
   // Redirect to signin if not authenticated
   useEffect(() => {
-    const sessionId = localStorage.getItem("sessionId");
+    const sessionId =
+      typeof window !== "undefined" ? localStorage.getItem("sessionId") : null;
 
     const validateSession = async () => {
       if (!sessionId) {
@@ -34,86 +37,105 @@ export default function ApiKeysPage() {
         return false;
       }
 
+      setSessionToken(sessionId);
       return true;
     };
 
     validateSession();
   }, []);
 
-  // --- 🟦 Mock 資料 ---
-  const mockKeys = [
-    {
-      id: 1,
-      key_name: "Demo Key 1",
-      api_key: "pk_demo_1234567890abcdef",
-      created_at: new Date().toISOString(),
-      last_used_at: new Date().toISOString(),
-    },
-    {
-      id: 2,
-      key_name: "Test Key 2",
-      api_key: "pk_demo_abcdef1234567890",
-      created_at: new Date().toISOString(),
-      last_used_at: null,
-    },
-  ];
-
-  // Fetch API keys (placeholder)
+  // Fetch API keys from backend
   const {
     data: keysData,
     isLoading: keysLoading,
     error: keysError,
   } = useQuery({
-    queryKey: ["api-keys"],
+    queryKey: ["api-keys", sessionToken],
     queryFn: async () => {
-      await new Promise((r) => setTimeout(r, 300));
-      return { keys: mockKeys };
+      const res = await fetch("/api/apikey", {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-Id": sessionToken || "",
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to load API keys");
+      }
+
+      return res.json();
     },
-    enabled: true, // ← ★ 修正：要讓它真的 fetch mock data
+    enabled: !!sessionToken,
   });
 
   // 新增 key
   const createKeyMutation = useMutation({
     mutationFn: async (name) => {
-      await new Promise((r) => setTimeout(r, 400));
-      return {
-        id: Date.now(),
-        key_name: name,
-        api_key: "pk_created_" + Math.random().toString(36).slice(2),
-        created_at: new Date().toISOString(),
-        last_used_at: null,
-      };
+      if (!sessionToken) throw new Error("Missing session");
+
+      const res = await fetch("/api/apikey", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-Id": sessionToken,
+        },
+        body: JSON.stringify({ keyName: name }),
+      });
+
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || "Failed to create key");
+      }
+
+      return res.json();
     },
     onSuccess: (newKey) => {
-      // 直接把新 key 加進快取，避免重新 fetch mock keys
-      const old = queryClient.getQueryData(["api-keys"])?.keys ?? [];
-      queryClient.setQueryData(["api-keys"], { keys: [...old, newKey] });
-
+      queryClient.invalidateQueries({ queryKey: ["api-keys", sessionToken] });
       setShowCreateForm(false);
       setNewKeyName("");
+      setRecentKey(newKey);
+      setSelectedKey(newKey.apiKey);
+    },
+    onError: (err) => {
+      console.error(err);
+      alert(err.message || "Failed to create key");
     },
   });
 
   // 刪除 key
   const revokeKeyMutation = useMutation({
     mutationFn: async (keyId) => {
-      await new Promise((r) => setTimeout(r, 200));
-      return true;
+      if (!sessionToken) throw new Error("Missing session");
+
+      const res = await fetch(`/api/apikey/${keyId}`, {
+        method: "DELETE",
+        headers: {
+          "X-Session-Id": sessionToken,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to delete key");
+      }
     },
     onSuccess: (_, keyId) => {
-      const old = queryClient.getQueryData(["api-keys"])?.keys ?? [];
-      queryClient.setQueryData(["api-keys"], {
-        keys: old.filter((k) => k.id !== keyId),
-      });
+      queryClient.invalidateQueries({ queryKey: ["api-keys", sessionToken] });
+      if (recentKey?.keyId === keyId) {
+        setRecentKey(null);
+      }
+    },
+    onError: (err) => {
+      console.error(err);
+      alert(err.message || "Failed to delete key");
     },
   });
 
-  const keys = keysData?.keys || [];
+  const keys = Array.isArray(keysData) ? keysData : [];
 
   // 初次載入自動選第一把 key
   useEffect(() => {
     if (keys.length > 0 && !selectedKey) {
-      setSelectedKey(keys[0].api_key);
+      setSelectedKey(keys[0].apiKey);
     }
   }, [keys, selectedKey]);
 
@@ -169,6 +191,66 @@ export default function ApiKeysPage() {
           Manage your API keys and test the chat API
         </p>
       </div>
+
+      {recentKey && (
+        <div
+          style={{
+            backgroundColor: "#ECFDF5",
+            border: "1px solid #A7F3D0",
+            borderRadius: "12px",
+            padding: "1.25rem",
+            marginBottom: "1.5rem",
+          }}
+        >
+          <p style={{ fontWeight: 600, marginBottom: "0.5rem", color: "#065F46" }}>
+            Store this key securely – it will only be shown once.
+          </p>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "0.75rem",
+              alignItems: "center",
+            }}
+          >
+            <code
+              style={{
+                background: "#D1FAE5",
+                padding: "0.5rem 0.75rem",
+                borderRadius: "6px",
+                fontFamily: "monospace",
+                fontSize: "0.95rem",
+              }}
+            >
+              {recentKey.apiKey}
+            </code>
+            <button
+              onClick={() => copyToClipboard(recentKey.apiKey, "recent-key")}
+              style={{
+                backgroundColor: "#10B981",
+                color: "white",
+                borderRadius: "6px",
+                padding: "0.35rem 0.75rem",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              Copy key
+            </button>
+            <button
+              onClick={() => setRecentKey(null)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#047857",
+                cursor: "pointer",
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* API Keys Section */}
       <div
@@ -252,7 +334,7 @@ export default function ApiKeysPage() {
               />
               <button
                 onClick={() => createKeyMutation.mutate(newKeyName)}
-                disabled={!newKeyName.trim()}
+                disabled={!newKeyName.trim() || createKeyMutation.isPending}
                 style={{
                   backgroundColor: "#10B981",
                   color: "white",
@@ -267,7 +349,25 @@ export default function ApiKeysPage() {
         )}
 
         {/* Keys */}
-        {keysLoading ? (
+        {keysError && (
+          <div
+            style={{
+              backgroundColor: "#FEF2F2",
+              border: "1px solid #FECACA",
+              borderRadius: "8px",
+              padding: "0.75rem 1rem",
+              color: "#991B1B",
+              marginBottom: "1rem",
+            }}
+          >
+            Failed to load API keys. {keysError.message}
+          </div>
+        )}
+        {!sessionToken ? (
+          <div style={{ textAlign: "center", padding: "2rem" }}>
+            Checking session...
+          </div>
+        ) : keysLoading ? (
           <div style={{ textAlign: "center", padding: "2rem" }}>
             Loading...
           </div>
@@ -279,7 +379,7 @@ export default function ApiKeysPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             {keys.map((key) => (
               <div
-                key={key.id}
+                key={key.keyId}
                 style={{
                   border: "1px solid #E5E7EB",
                   borderRadius: "8px",
@@ -288,7 +388,7 @@ export default function ApiKeysPage() {
               >
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <div>
-                    <div style={{ fontWeight: "bold" }}>{key.key_name}</div>
+                    <div style={{ fontWeight: "bold" }}>{key.keyName}</div>
                     <div
                       style={{
                         fontFamily: "monospace",
@@ -298,32 +398,34 @@ export default function ApiKeysPage() {
                         marginTop: "0.5rem",
                       }}
                     >
-                      {visibleKeys.has(key.id)
-                        ? key.api_key
-                        : key.api_key.substring(0, 12) +
-                        "*".repeat(key.api_key.length - 12)}
+                      {visibleKeys.has(key.keyId)
+                        ? key.apiKey
+                        : key.apiKey.length > 12
+                          ? key.apiKey.substring(0, 12) +
+                          "*".repeat(Math.max(key.apiKey.length - 12, 1))
+                          : "*".repeat(Math.max(key.apiKey.length, 1))}
                       <button
-                        onClick={() => toggleKeyVisibility(key.id)}
+                        onClick={() => toggleKeyVisibility(key.keyId)}
                         style={{ marginLeft: "1rem" }}
                       >
-                        {visibleKeys.has(key.id) ? <EyeOff /> : <Eye />}
+                        {visibleKeys.has(key.keyId) ? <EyeOff /> : <Eye />}
                       </button>
                       <button
                         onClick={() =>
-                          copyToClipboard(key.api_key, `key-${key.id}`)
+                          copyToClipboard(key.apiKey, `key-${key.keyId}`)
                         }
                         style={{ marginLeft: "0.5rem" }}
                       >
                         <Copy />
                       </button>
-                      {copiedText === `key-${key.id}` && (
+                      {copiedText === `key-${key.keyId}` && (
                         <span style={{ color: "#10B981" }}>Copied!</span>
                       )}
                     </div>
                   </div>
 
                   <button
-                    onClick={() => revokeKeyMutation.mutate(key.id)}
+                    onClick={() => revokeKeyMutation.mutate(key.keyId)}
                     style={{
                       backgroundColor: "#EF4444",
                       color: "white",
@@ -366,8 +468,8 @@ export default function ApiKeysPage() {
                 style={{ padding: "0.5rem", borderRadius: "6px" }}
               >
                 {keys.map((k) => (
-                  <option key={k.id} value={k.api_key}>
-                    {k.key_name}
+                  <option key={k.keyId} value={k.apiKey}>
+                    {k.keyName}
                   </option>
                 ))}
               </select>
