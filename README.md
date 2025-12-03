@@ -26,11 +26,7 @@ docker-compose up --build
 ```
 
 **Access:**
-- Chat: http://localhost:4000
-- Admin: http://localhost:4000/admin
-- API Playground: http://localhost:4000/developer
-
-**Default Admin:** `admin` / `admin123`
+- http://localhost:4000/account/signup
 
 ## Features
 
