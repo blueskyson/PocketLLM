@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 
 export default function ChatInterface() {
-  // state
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentConversationTitle, setCurrentConversationTitle] = useState(null);
   const [message, setMessage] = useState("");
@@ -20,58 +19,44 @@ export default function ChatInterface() {
   const [conversationsData, setConversationsData] = useState([]);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isSending, setIsSending] = useState(false);
-  
+
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
-  // Redirect to signin if not authenticated
   useEffect(() => {
     const sessionId = localStorage.getItem("sessionId");
-  
+
     const validateSession = async () => {
       if (!sessionId) {
         window.location.href = "/account/signin";
         return false;
       }
-  
-      const res = await fetch("/api/auth/validate", {
-        headers: { "X-Session-Id": sessionId },
-      });
-  
+      const res = await fetch("/api/auth/validate", { headers: { "X-Session-Id": sessionId } });
       if (!res.ok) {
         localStorage.removeItem("sessionId");
         window.location.href = "/account/signin";
         return false;
       }
-  
       return true;
     };
-  
+
     const loadConversations = async () => {
       const res = await fetch("/api/chat/list", {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Session-Id": sessionId,
-        },
+        headers: { "Content-Type": "application/json", "X-Session-Id": sessionId }
       });
-  
+
       if (!res.ok) {
         console.error(`Failed to load conversations: ${res.status}`);
         return;
       }
-  
+
       const data = await res.json();
-      const conversations = Array.isArray(data?.conversations)
-        ? data.conversations
-        : Array.isArray(data)
-        ? data
-        : [];
-  
+      const conversations = Array.isArray(data?.conversations) ? data.conversations : Array.isArray(data) ? data : [];
       conversations.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-  
+
       setConversationsData(conversations);
-  
+
       setCurrentConversationId(null);
       setCurrentConversationTitle("New Conversation");
       setCurrentConversation({
@@ -81,10 +66,10 @@ export default function ChatInterface() {
         createdAt: Date.now(),
         __draft: true,
       });
-  
+
       setTimeout(() => textareaRef.current?.focus(), 100);
     };
-  
+
     (async () => {
       const ok = await validateSession();
       if (ok) await loadConversations();
@@ -95,9 +80,6 @@ export default function ChatInterface() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
-  // ─────────────────────────────────────────────────────────────
-  // New Conversation
-  // ─────────────────────────────────────────────────────────────
   const handleNewConversation = useCallback(() => {
     setCurrentConversationId(null);
     setCurrentConversationTitle("New Conversation");
@@ -112,9 +94,6 @@ export default function ChatInterface() {
     setTimeout(() => textareaRef.current?.focus(), 100);
   }, []);
 
-  // ─────────────────────────────────────────────────────────────
-  // Delete conversation
-  // ─────────────────────────────────────────────────────────────
   const handleDeleteConversation = useCallback(
     async (conversationId, e) => {
       e.stopPropagation();
@@ -129,19 +108,15 @@ export default function ChatInterface() {
 
         const deleteRes = await fetch(`/api/chat/${conversationId}`, {
           method: "DELETE",
-          headers: {
-            "X-Session-Id": localStorage.getItem("sessionId") || "",
-          },
+          headers: { "X-Session-Id": localStorage.getItem("sessionId") || "" },
         });
-        
+
         if (!deleteRes.ok) {
           console.error("Failed to delete conversation");
           return;
         }
 
-        setConversationsData((prev) =>
-          prev.filter((c) => c.chatId !== conversationId)
-        );
+        setConversationsData((prev) => prev.filter((c) => c.chatId !== conversationId));
 
         if (currentConversationId === conversationId) {
           handleNewConversation();
@@ -153,74 +128,57 @@ export default function ChatInterface() {
     [currentConversationId, handleNewConversation]
   );
 
-  // ─────────────────────────────────────────────────────────────
-  // Select Conversation & Load History
-  // ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!currentConversationId) return; 
+// 取 conversation history 的部分
+useEffect(() => {
+  if (!currentConversationId) return;
+  let cancelled = false;
 
-    let cancelled = false;
-    const fetchConversation = async () => {
-      try {
-        const res = await fetch(`/api/chat/history/${currentConversationId}`, {
-          method: "GET",
-          headers: {
-            "X-Session-Id": localStorage.getItem("sessionId") || "",
-          },
+  const fetchConversation = async () => {
+    try {
+      const res = await fetch(`/api/chat/history/${currentConversationId}`, {
+        method: "GET",
+        headers: { "X-Session-Id": localStorage.getItem("sessionId") || "" },
+      });
+
+      if (!res.ok) throw new Error("Failed to fetch chat history");
+      const data = await res.json();
+
+      const mappedMessages = Array.isArray(data)
+        ? data.map((msg, idx) => ({
+            id: msg.id || `${currentConversationId}-${idx}`,
+            role: msg.fromUser ? "user" : "assistant",
+            content: msg.content,
+            timestamp: msg.timestamp ? new Date(msg.timestamp).getTime() : Date.now(),
+          }))
+        : [];
+
+      if (!cancelled) {
+        setCurrentConversation((prev) => {
+          if (!prev) return { chatId: currentConversationId, title: currentConversationTitle || "Conversation", messages: mappedMessages, createdAt: Date.now() };
+          // 只 append 不存在的訊息，避免重複
+          const existingIds = new Set(prev.messages.map(m => m.id));
+          const newMsgs = mappedMessages.filter(m => !existingIds.has(m.id));
+          return { ...prev, messages: [...prev.messages, ...newMsgs] };
         });
 
-        if (!res.ok) throw new Error("Failed to fetch chat history");
-        const data = await res.json();
+        setConversationsData((prev) => {
+          const exists = prev.some((c) => c.chatId === currentConversationId);
+          const conv = exists ? prev.map(c => c.chatId === currentConversationId ? { ...c, messages: mappedMessages } : c) : [...prev, { chatId: currentConversationId, title: currentConversationTitle || "Conversation", messages: mappedMessages, createdAt: Date.now() }];
+          return conv;
+        });
 
-        const mappedMessages = Array.isArray(data)
-          ? data.map((msg, idx) => ({
-              id: `${currentConversationId}-${idx}`,
-              role: msg.fromUser ? "user" : "assistant",
-              content: msg.content,
-              timestamp: msg.timestamp
-                ? new Date(msg.timestamp).getTime()
-                : Date.now(),
-            }))
-          : [];
-
-        // If we don't have a title in state yet, look it up from conversationsData
-        let titleToUse = currentConversationTitle;
-        if (!titleToUse) {
-           const found = conversationsData.find(c => c.chatId === currentConversationId);
-           if (found) titleToUse = found.title;
-        }
-
-        const newConv = {
-          chatId: currentConversationId,
-          title: titleToUse || "Conversation",
-          messages: mappedMessages,
-          createdAt: Date.now(),
-        };
-
-        if (!cancelled) {
-          setConversationsData((prev) => {
-            const exists = prev.some((c) => c.chatId === newConv.chatId);
-            return exists
-              ? prev.map((c) => (c.chatId === newConv.chatId ? newConv : c))
-              : [...prev, newConv];
-          });
-          setCurrentConversation(newConv);
-          setTimeout(scrollToBottom, 100);
-        }
-      } catch (err) {
-        console.error("Error fetching conversation:", err);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
       }
-    };
+    } catch (err) {
+      console.error("Error fetching conversation:", err);
+    }
+  };
 
-    fetchConversation();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentConversationId, currentConversationTitle, scrollToBottom]);
+  fetchConversation();
+  return () => { cancelled = true; };
+}, [currentConversationId, currentConversationTitle]);
 
-  // ─────────────────────────────────────────────────────────────
-  // Send message
-  // ─────────────────────────────────────────────────────────────
+
   const handleSendMessage = useCallback(
     async (e) => {
       if (e) e.preventDefault();
@@ -239,28 +197,20 @@ export default function ChatInterface() {
       try {
         let chatId = currentConversationId;
 
-        // 1) Create chat on first message
         if (!chatId) {
-          // GENERATE TITLE DYNAMICALLY
           const generatedTitle = text.length > 30 ? text.substring(0, 30) + "..." : text;
-          
+
           const createRes = await fetch("/api/chat/create", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Session-Id": localStorage.getItem("sessionId") || "",
-            },
+            headers: { "Content-Type": "application/json", "X-Session-Id": localStorage.getItem("sessionId") || "" },
             body: JSON.stringify({ title: generatedTitle }),
           });
-          
+
           if (!createRes.ok) throw new Error("Failed to create chat");
           const createData = await createRes.json();
           chatId = createData.chatId;
-          
-          // Use backend title if provided, otherwise use generated one
           const finalTitle = createData.title || generatedTitle;
 
-          // Update State Variables Immediately
           setCurrentConversationTitle(finalTitle);
 
           const newConvEntry = {
@@ -270,22 +220,15 @@ export default function ChatInterface() {
             createdAt: Date.now(),
           };
 
-          // Update Sidebar List immediately
           setConversationsData((prev) => [newConvEntry, ...prev]);
-          
-          // Update Active View immediately
           setCurrentConversationId(chatId);
           setCurrentConversation(newConvEntry);
 
         } else {
-          // Optimistically append user message to existing chat
+          // ⚡ Optimistic append, 保留 key 穩定
           const updateFn = (conv) =>
-            conv.chatId === chatId || conv.id === chatId
-              ? {
-                  ...conv,
-                  messages: [...(conv.messages || []), userMsg],
-                  createdAt: Date.now(),
-                }
+            conv.chatId === chatId
+              ? { ...conv, messages: [...(conv.messages || []), userMsg] }
               : conv;
 
           setConversationsData((prev) => prev.map(updateFn));
@@ -295,45 +238,29 @@ export default function ChatInterface() {
         setMessage("");
         setTimeout(scrollToBottom, 50);
 
-        // 2) Send to backend
         const sendRes = await fetch("/api/chat/message", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Session-Id": localStorage.getItem("sessionId") || "",
-          },
-          body: JSON.stringify({
-            chatId: chatId,
-            content: text,
-            fromUser: true,
-          }),
+          headers: { "Content-Type": "application/json", "X-Session-Id": localStorage.getItem("sessionId") || "" },
+          body: JSON.stringify({ chatId: chatId, content: text, fromUser: true }),
         });
 
         if (!sendRes.ok) throw new Error("Failed to send message");
         const sendData = await sendRes.json();
 
         const newMessage = sendData.llmResponse
-          ? { 
-              role: "assistant", 
-              content: sendData.llmResponse, 
-              timestamp: Date.now() 
-            }
+          ? { role: "assistant", content: sendData.llmResponse, timestamp: Date.now(), id: `llm-${Date.now()}` }
           : null;
 
         if (newMessage) {
-           const appendMsgFn = (conv) =>
-            (conv.chatId === chatId || conv.id === chatId)
-              ? {
-                  ...conv,
-                  messages: [...(conv.messages || []), newMessage],
-                  createdAt: Date.now(),
-                }
+          const appendMsgFn = (conv) =>
+            conv.chatId === chatId
+              ? { ...conv, messages: [...(conv.messages || []), newMessage] }
               : conv;
 
           setConversationsData((prev) => prev.map(appendMsgFn));
           setCurrentConversation((prev) => (prev ? appendMsgFn(prev) : prev));
         }
-        
+
         setTimeout(scrollToBottom, 100);
       } catch (err) {
         console.error("Error sending message:", err);
@@ -363,89 +290,45 @@ export default function ChatInterface() {
   return (
     <div className="flex h-screen bg-gray-50 font-sans">
       {/* Sidebar */}
-      <div
-        className={`${
-          sidebarOpen ? "w-80 translate-x-0" : "w-0 -translate-x-full"
-        } fixed md:relative z-20 h-full transition-all duration-300 overflow-hidden bg-white border-r border-gray-200 flex flex-col`}
-      >
+      <div className={`${sidebarOpen ? "w-80 translate-x-0" : "w-0 -translate-x-full"} fixed md:relative z-20 h-full transition-all duration-300 overflow-hidden bg-white border-r border-gray-200 flex flex-col`}>
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
-            {/* left: title */}
             <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <MessageCircle className="w-6 h-6 text-blue-600" />
-              PocketLLM
+              <MessageCircle className="w-6 h-6 text-blue-600" /> PocketLLM
             </h1>
-
-            {/* right: API Key 管理 & Admin Console 按鈕 */}
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => (window.location.href = "/developer")}
-                title="API Key Management"
-                aria-label="API Key Management"
-                className="flex items-center gap-2 px-1 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-md shadow-sm transition"
-              >
-                <Key className="w-4 h-4" />
-                <span className="hidden sm:inline">API</span>
+              <button onClick={() => (window.location.href = "/developer")} title="API Key Management" aria-label="API Key Management" className="flex items-center gap-2 px-1 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-md shadow-sm transition">
+                <Key className="w-4 h-4" /><span className="hidden sm:inline">API</span>
               </button>
-
-              <button
-                onClick={() => (window.location.href = "/admin")}
-                title="Admin Console"
-                aria-label="Admin Console"
-                className="flex items-center gap-2 px-1 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-md shadow-sm transition"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">Admin</span>
+              <button onClick={() => (window.location.href = "/admin")} title="Admin Console" aria-label="Admin Console" className="flex items-center gap-2 px-1 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-md shadow-sm transition">
+                <Settings className="w-4 h-4" /><span className="hidden sm:inline">Admin</span>
               </button>
             </div>
           </div>
-          <button
-            onClick={handleNewConversation}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            New Chat
+          <button onClick={handleNewConversation} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">
+            <Plus className="w-4 h-4" /> New Chat
           </button>
         </div>
-
         <div className="flex-1 overflow-y-auto p-2">
           {conversationsData.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 text-sm">
-              No conversations yet
-            </div>
+            <div className="text-center py-8 text-gray-500 text-sm">No conversations yet</div>
           ) : (
             <div className="space-y-1">
               {conversationsData.map((conversation) => (
-                <div
-                  key={conversation.chatId || conversation.id}
-                  onClick={() => {
+                <div key={conversation.chatId || conversation.id} onClick={() => {
                     setCurrentConversationId(conversation.chatId || conversation.id);
                     setCurrentConversationTitle(conversation.title);
                     if (window.innerWidth < 768) setSidebarOpen(false);
-                  }}
-                  className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
-                    currentConversationId === (conversation.chatId || conversation.id)
-                      ? "bg-blue-50 border border-blue-200 shadow-sm"
-                      : "hover:bg-gray-100 border border-transparent"
-                  }`}
-                >
+                  }} className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${currentConversationId === (conversation.chatId || conversation.id) ? "bg-blue-50 border border-blue-200 shadow-sm" : "hover:bg-gray-100 border border-transparent"}`}>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${
-                       currentConversationId === (conversation.chatId || conversation.id) ? "text-blue-700" : "text-gray-700"
-                    }`}>
+                    <p className={`text-sm font-medium truncate ${currentConversationId === (conversation.chatId || conversation.id) ? "text-blue-700" : "text-gray-700"}`}>
                       {conversation.title || "New Conversation"}
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {conversation.createdAt ? new Date(conversation.createdAt).toLocaleDateString() : 'Just now'}
                     </p>
                   </div>
-                  <button
-                    onClick={(e) =>
-                      handleDeleteConversation(conversation.chatId || conversation.id, e)
-                    }
-                    className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
-                    title="Delete chat"
-                  >
+                  <button onClick={(e) => handleDeleteConversation(conversation.chatId || conversation.id, e)} className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all" title="Delete chat">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -460,17 +343,11 @@ export default function ChatInterface() {
         <div className="p-4 border-b border-gray-200 bg-white flex items-center justify-between">
            <div className="flex items-center gap-3">
             {!sidebarOpen && (
-                <button
-                onClick={() => setSidebarOpen(true)}
-                className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Open Sidebar"
-                >
+                <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Open Sidebar">
                 <MessageCircle className="w-5 h-5" />
                 </button>
             )}
-            <h2 className="text-lg font-semibold text-gray-800 truncate">
-                {currentConversation?.title || "New Chat"}
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-800 truncate">{currentConversation?.title || "New Chat"}</h2>
            </div>
         </div>
 
@@ -482,48 +359,25 @@ export default function ChatInterface() {
                 <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                     <Bot className="w-8 h-8 text-blue-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                  Welcome to Pocket LLM
-                </h2>
-                <p className="text-gray-500 mb-8 leading-relaxed">
-                  I can help you write code, draft emails, or answer complex questions. 
-                  Start a new conversation below.
-                </p>
-                <button
-                  onClick={() => textareaRef.current?.focus()}
-                  className="text-blue-600 font-medium hover:underline"
-                >
-                  Type a message to begin →
-                </button>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome to Pocket LLM</h2>
+                <p className="text-gray-500 mb-8 leading-relaxed">I can help you write code, draft emails, or answer complex questions. Start a new conversation below.</p>
+                <button onClick={() => textareaRef.current?.focus()} className="text-blue-600 font-medium hover:underline">Type a message to begin →</button>
               </div>
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-6 pb-4">
-              {currentConversation.messages?.map((msg, idx) => {
+              {currentConversation.messages?.map((msg) => {
                 const isUser = msg.role === "user";
                 return (
-                  <div
-                    key={`${currentConversation.chatId}-${idx}`}
-                    className={`flex gap-4 ${isUser ? "justify-end" : "justify-start"}`}
-                  >
+                  <div key={msg.id} className={`flex gap-4 ${isUser ? "justify-end" : "justify-start"}`}>
                     {!isUser && (
                       <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm text-white">
                         <Bot className="w-5 h-5" />
                       </div>
                     )}
-                    <div
-                      className={`max-w-[85%] md:max-w-[75%] p-4 rounded-2xl shadow-sm ${
-                        isUser
-                          ? "bg-blue-600 text-white rounded-tr-none"
-                          : "bg-white border border-gray-100 text-gray-800 rounded-tl-none"
-                      }`}
-                    >
-                      <p className="text-sm md:text-base whitespace-pre-wrap leading-relaxed">
-                        {msg.content}
-                      </p>
-                      <p className={`text-[10px] mt-2 opacity-70 ${isUser ? 'text-blue-100' : 'text-gray-400'}`}>
-                        {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
-                      </p>
+                    <div className={`max-w-[85%] md:max-w-[75%] p-4 rounded-2xl shadow-sm ${isUser ? "bg-blue-600 text-white rounded-tr-none" : "bg-white border border-gray-100 text-gray-800 rounded-tl-none"}`}>
+                      <p className="text-sm md:text-base whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      <p className={`text-[10px] mt-2 opacity-70 ${isUser ? 'text-blue-100' : 'text-gray-400'}`}>{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</p>
                     </div>
                     {isUser && (
                       <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
@@ -533,8 +387,7 @@ export default function ChatInterface() {
                   </div>
                 );
               })}
-              
-              {/* Thinking Indicator */}
+
               {isSending && (
                 <div className="flex gap-4 justify-start">
                     <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm text-white">
@@ -554,7 +407,6 @@ export default function ChatInterface() {
           )}
         </div>
 
-        {/* Message Input */}
         {currentConversation && (
           <div className="p-4 bg-white border-t border-gray-200">
             <div className="max-w-3xl mx-auto relative">
