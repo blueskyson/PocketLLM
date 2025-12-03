@@ -10,10 +10,10 @@ A self-hosted chat application with local LLM inference, query caching, admin da
 │  React+Vite  │    │ Spring Boot  │    │  llama.cpp   │
 │   :4000      │    │    :8080     │    │    :8081     │
 └──────────────┘    └──────┬───────┘    └──────────────┘
-                          │
-                    ┌─────▼─────┐
-                    │ Database. │
-                    └───────────┘
+                           │
+                     ┌─────▼─────┐
+                     │ Database. │
+                     └───────────┘
 ```
 
 ## Quick Start
