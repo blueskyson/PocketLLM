@@ -15,7 +15,13 @@ A self-hosted chat application with local LLM inference, query caching, admin da
                      │ Database. │
                      └───────────┘
 ```
+## Prerequisites
 
+Before running PocketLLM Portal, please make sure you have:
+
+- **Docker**  
+- **Docker Compose** (for newer Docker Desktop, it is built-in as `docker compose`)
+  
 ## Quick Start
 
 ```bash
