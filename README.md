@@ -104,10 +104,11 @@ curl -X POST http://localhost:8080/api/keys/create \
   -d '{"name": "My Key"}'
 
 # Use API key
-curl -X POST http://localhost:8080/api/playground/chat \
+curl -X POST \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: <API_KEY>" \
-  -d '{"message": "What is AI?"}'
+  -H "Authorization: Bearer <API_KEY>" \
+  -d '{ "model": "pocket-llm-chat", "messages": [{ role": "user", "content": "hello"}] }' \
+  http://localhost:8080/api/playground/chat
 ```
 
 ## Requirements
