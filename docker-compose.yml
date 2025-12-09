@@ -19,7 +19,7 @@ services:
 
   # LLM Model Server
   llm:
-    image: ghcr.io/ggerganov/llama.cpp:server
+    image: ghcr.io/ggerganov/llama.cpp:server-b4667
     platform: linux/amd64
     container_name: pocketllm-llm
     ports:
