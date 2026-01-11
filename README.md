@@ -2,6 +2,10 @@
 
 A self-hosted chat application with local LLM inference, query caching, admin dashboard, and API playground.
 
+Demo video: https://www.youtube.com/watch?v=Fxxl9Q-uiVU
+
+Design Document: [Group 3 Design Document.pdf](./Design_Document.pdf)
+
 ## Architecture
 
 ```
